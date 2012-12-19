@@ -58,6 +58,7 @@ use N98\Magento\Command\MagentoConnect\UpgradeExtensionCommand as MagentoConnect
 use N98\Magento\Command\Cms\Page\PublishCommand as MagentoCmsPagePublishCommand;
 use N98\Magento\Command\Cms\Banner\ToggleCommand as MagentoCmsBannerToggleCommand;
 use N98\Magento\Command\SelfUpdateCommand as SelfUpdateCommand;
+use N98\Magento\Command\Developer\GenerateVHostCommand;
 use N98\Util\OperatingSystem;
 use Xanido\Console\Helper\TableHelper;
 
@@ -181,6 +182,7 @@ class Application extends BaseApplication
         $this->add(new MagentoCmsPagePublishCommand());
         $this->add(new MagentoCmsBannerToggleCommand());
         $this->add(new SelfUpdateCommand());
+        $this->add(new GenerateVHostCommand());
     }
 
     /**

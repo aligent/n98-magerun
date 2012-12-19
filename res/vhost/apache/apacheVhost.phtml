@@ -1,0 +1,32 @@
+<VirtualHost *:80>
+<?php if ($devMode) : ?>
+        SetEnv MAGE_IS_DEVELOPER_MODE 'true'
+<?php endif; ?>
+
+        ServerAdmin <?php echo $serverAdmin ?>
+
+        
+        DocumentRoot <?php echo $documentRoot ?>
+        
+        ServerName <?php echo $serverName ?>
+
+        <Directory />
+                Options FollowSymLinks
+                AllowOverride All
+        </Directory>
+        <Directory <?php echo $documentRoot ?>>
+                Options Indexes FollowSymLinks MultiViews
+                AllowOverride All
+                Order allow,deny
+                allow from all
+        </Directory>
+
+        ErrorLog ${APACHE_LOG_DIR}/<?php echo $serverName ?>.error.log
+
+        # Possible values include: debug, info, notice, warn, error, crit,
+        # alert, emerg.
+        LogLevel warn
+
+        CustomLog ${APACHE_LOG_DIR}/<?php echo $serverName ?>.access.log combined
+
+</VirtualHost>
