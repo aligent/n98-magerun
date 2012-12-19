@@ -15,6 +15,11 @@ class CheckCommand extends AbstractMagentoCommand
      */
     protected $infos;
 
+    /**
+     * @var int
+     */
+    protected $_verificationTimeOut = 30;
+
     protected function configure()
     {
         $this
@@ -59,7 +64,6 @@ class CheckCommand extends AbstractMagentoCommand
          */
         $folders = array(
             array('media', 'Used for images and other media files.'),
-            array('media/xmlconnect', 'Used for magento mobile tools.'),
             array('var', 'Used for caching, reports, etc.'),
             array('var/cache', 'Used for caching'),
             array('var/session', 'Used as file based sesssion save'),
