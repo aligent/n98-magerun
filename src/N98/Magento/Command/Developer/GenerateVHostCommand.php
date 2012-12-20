@@ -4,7 +4,6 @@ namespace N98\Magento\Command\Developer;
 
 use N98\Magento\Command\AbstractMagentoCommand;
 use N98\View\PhpView;
-use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -34,6 +33,8 @@ HELP
                 ->addOption('nginx', null, InputOption::VALUE_NONE, 'Generate nginx VHost')
                 ->addOption('dev-mode', null, InputOption::VALUE_NONE, 'Set MAGE_IS_DEVELOPER_MODE to true')
                 ->addOption('server-admin', null, InputOption::VALUE_OPTIONAL, "The webmaster's email address", 'webmaster@localhost')
+                ->addOption('template', null, InputOption::VALUE_REQUIRED, 'Custom VHost template filename')
+                ->addOption('dump-template', null, InputOption::VALUE_NONE, 'Dump the VHost template that would have otherwise been used. Useful to use as a base for a custom template')
         ;
     }
 
@@ -46,13 +47,21 @@ HELP
         $this->_addOptionsToView($input->getOptions());
         $this->_addMagentoSettingsToView($output);
 
-        if ($input->getOption('nginx')) {
-            $this->_generateNginxVhost();
-        } else {
-            $this->_generateApacheVhost();
+        $template = '';
+        if (!$template = $input->getOption('template')) {
+            if ($input->getOption('nginx')) {
+                $template = $this->_getBaseFolder() . '/nginx/nginxVhost.phtml';
+            } else {
+                $template = $this->_getBaseFolder() . '/apache/apacheVhost.phtml';
+            }
         }
-
-        $output->writeln($this->_getView()->render());
+        
+        if ($input->getOption('dump-template')) {
+            $output->writeln(file_get_contents($template));
+        } else {
+            $this->_getView()->setTemplate($template);
+            $output->writeln($this->_getView()->render());
+        }
     }
 
     protected function _addMagentoSettingsToView(OutputInterface $output) {
@@ -62,16 +71,16 @@ HELP
         $configPath = 'web/unsecure/base_url';
 
         $websites = \Mage::app()->getWebsites(true, false);
-        
-        
+
+
         foreach ($websites as $website) {
             $website->hostName = parse_url($website->getConfig($configPath), PHP_URL_HOST);
         }
-        
+
         if (count($websites) > 1 && $websites[0]->code == 'admin') {
             unset($websites[0]);
         }
-        
+
         $view->assign('websites', $websites);
     }
 
@@ -88,15 +97,6 @@ HELP
 
             $view->assign($key, $value);
         }
-    }
-
-    protected function _generateApacheVhost() {
-        $view = $this->_getView();
-        $view->setTemplate($this->_getBaseFolder() . '/apache/apacheVhost.phtml');
-    }
-
-    protected function _generateNginxVhost() {
-        
     }
 
     protected function _getBaseFolder() {
