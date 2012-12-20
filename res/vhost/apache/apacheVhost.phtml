@@ -7,8 +7,38 @@
 
         
         DocumentRoot <?php echo $documentRoot ?>
+
         
-        ServerName <?php echo $serverName ?>
+<?php $defaultWebsite = reset($websites); // Get the first element ?>
+<?php foreach ($websites as $website) : ?>
+<?php if ($website->isDefault) : ?>
+<?php $defaultWebsite = $website; ?>
+<?php endif; ?>
+<?php endforeach; ?>
+        ServerName <?php echo $defaultWebsite->hostName ?>
+
+<?php foreach ($websites as $website) : ?>
+<?php if ($website !== $defaultWebsite) : ?>
+        ServerAlias <?php echo $website->hostName; ?>
+
+<?php endif; ?>
+<?php endforeach; ?>
+<?php if (count($websites) > 1) : ?>
+
+# See http://serverfault.com/questions/144091/conditionally-set-an-apache-environment-variable
+# for details on conditionally setting an apache environment variable with defaults
+<?php foreach ($websites as $website) : ?>
+<?php if (!$website->isDefault) : ?>
+        SetEnvIfNoCase Host ^<?php echo str_replace('.', '\.', $website->hostName); ?>$ MAGE_RUN_CODE=<?php echo $website->code; ?>
+
+<?php endif; ?>
+<?php endforeach; ?>
+
+# Set the defaults:
+        SetEnvIf MAGE_RUN_CODE ^$ MAGE_RUN_CODE=<?php echo $defaultWebsite->code; ?>
+
+        SetEnv MAGE_RUN_TYPE 'website'
+<?php endif; ?>
 
         <Directory />
                 Options FollowSymLinks
@@ -21,12 +51,12 @@
                 allow from all
         </Directory>
 
-        ErrorLog ${APACHE_LOG_DIR}/<?php echo $serverName ?>.error.log
+        ErrorLog ${APACHE_LOG_DIR}/<?php echo $defaultWebsite->hostName ?>.error.log
 
         # Possible values include: debug, info, notice, warn, error, crit,
         # alert, emerg.
         LogLevel warn
 
-        CustomLog ${APACHE_LOG_DIR}/<?php echo $serverName ?>.access.log combined
+        CustomLog ${APACHE_LOG_DIR}/<?php echo $defaultWebsite->hostName ?>.access.log combined
 
 </VirtualHost>

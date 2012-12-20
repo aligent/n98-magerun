@@ -58,17 +58,21 @@ HELP
     protected function _addMagentoSettingsToView(OutputInterface $output) {
         $view = $this->_getView();
         $view->assign('documentRoot', $this->_magentoRootFolder);
-        
-        
+
         $configPath = 'web/unsecure/base_url';
-        $collection = $this
-                ->_getConfigDataModel()
-                ->getCollection();
-        $collection->addFieldToFilter('path', $configPath);
-        $config = $collection->fetchItem();
-        $baseUrl = $config->value;
-        $documentRoot = parse_url($baseUrl, PHP_URL_HOST);
-        $view->assign('serverName', $documentRoot);
+
+        $websites = \Mage::app()->getWebsites(true, false);
+        
+        
+        foreach ($websites as $website) {
+            $website->hostName = parse_url($website->getConfig($configPath), PHP_URL_HOST);
+        }
+        
+        if (count($websites) > 1 && $websites[0]->code == 'admin') {
+            unset($websites[0]);
+        }
+        
+        $view->assign('websites', $websites);
     }
 
     protected function _addOptionsToView(array $options) {
