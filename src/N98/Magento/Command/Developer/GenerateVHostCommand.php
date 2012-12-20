@@ -77,7 +77,7 @@ HELP
         foreach ($websites as $website) {
             $website->hostName = parse_url($website->getConfig($unsecureConfigPath), PHP_URL_HOST);
             $website->secureHostName = parse_url($website->getConfig($secureConfigPath), PHP_URL_HOST);
-            $website->ipAddress = gethostbyname($website->hostName);
+            $website->ipAddress = gethostbyname($website->hostName); // todo: default 127.0.0.1
         }
 
         if (count($websites) > 1 && $websites[0]->code == 'admin') {
