@@ -9,12 +9,6 @@
         DocumentRoot <?php echo $documentRoot ?>
 
         
-<?php $defaultWebsite = reset($websites); // Get the first element ?>
-<?php foreach ($websites as $website) : ?>
-<?php if ($website->isDefault) : ?>
-<?php $defaultWebsite = $website; ?>
-<?php endif; ?>
-<?php endforeach; ?>
         ServerName <?php echo $defaultWebsite->hostName ?>
 
 <?php foreach ($websites as $website) : ?>

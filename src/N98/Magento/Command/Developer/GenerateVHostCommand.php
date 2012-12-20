@@ -55,7 +55,7 @@ HELP
                 $template = $this->_getBaseFolder() . '/apache/apacheVhost.phtml';
             }
         }
-        
+
         if ($input->getOption('dump-template')) {
             $output->writeln(file_get_contents($template));
         } else {
@@ -68,19 +68,30 @@ HELP
         $view = $this->_getView();
         $view->assign('documentRoot', $this->_magentoRootFolder);
 
-        $configPath = 'web/unsecure/base_url';
+        $unsecureConfigPath = 'web/unsecure/base_url';
+        $secureConfigPath = 'web/secure/base_url';
 
         $websites = \Mage::app()->getWebsites(true, false);
 
 
         foreach ($websites as $website) {
-            $website->hostName = parse_url($website->getConfig($configPath), PHP_URL_HOST);
+            $website->hostName = parse_url($website->getConfig($unsecureConfigPath), PHP_URL_HOST);
+            $website->secureHostName = parse_url($website->getConfig($secureConfigPath), PHP_URL_HOST);
+            $website->ipAddress = gethostbyname($website->hostName);
         }
 
         if (count($websites) > 1 && $websites[0]->code == 'admin') {
             unset($websites[0]);
         }
 
+        $defaultWebsite = reset($websites); // Get the first element 
+        foreach ($websites as $website) {
+            if ($website->isDefault) {
+                $defaultWebsite = $website;
+            }
+        }
+
+        $view->assign('defaultWebsite', $defaultWebsite);
         $view->assign('websites', $websites);
     }
 
@@ -88,7 +99,7 @@ HELP
         $view = $this->_getView();
         foreach ($options as $key => $value) {
 
-            // convert hypenated options to camelCase
+// convert hypenated options to camelCase
             $keyParts = explode('-', $key);
             for ($i = 1; $i < count($keyParts); $i++) {
                 $keyParts[$i] = ucfirst($keyParts[$i]);
