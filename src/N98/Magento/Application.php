@@ -65,6 +65,7 @@ use N98\Magento\Command\Developer\Module\Observer\ListCommand as ModuleObserverL
 use N98\Magento\Command\Developer\Theme\DuplicatesCommand as ThemeDuplicatesCommand;
 use N98\Magento\Command\Developer\Theme\ListCommand as ThemeListCommand;
 //use N98\Magento\Command\Developer\Theme\InfoCommand as ThemeInfoCommand;
+use N98\Magento\Command\Developer\Widget\CreateCommand as WidgetCreateCommand;
 use N98\Magento\Command\MagentoConnect\ListExtensionsCommand as MagentoConnectionListExtensionsCommand;
 use N98\Magento\Command\MagentoConnect\InstallExtensionCommand as MagentoConnectionInstallExtensionCommand;
 use N98\Magento\Command\MagentoConnect\DownloadExtensionCommand as MagentoConnectionDownloadExtensionCommand;
@@ -195,6 +196,7 @@ class Application extends BaseApplication
         $this->add(new ThemeDuplicatesCommand());
         $this->add(new ThemeListCommand());
         //$this->add(new ThemeInfoCommand());
+        $this->add(new WidgetCreateCommand());
         $this->add(new ProfilerCommand());
         $this->add(new SymlinksCommand());
         $this->add(new DevelopmentLogCommand());
