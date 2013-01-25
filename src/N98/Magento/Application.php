@@ -2,7 +2,12 @@
 
 namespace N98\Magento;
 
+use N98\Util\String;
 use Symfony\Component\Console\Application as BaseApplication;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Finder\Finder;
 use N98\Magento\Command\ConfigurationLoader;
@@ -10,6 +15,7 @@ use N98\Magento\Command\LocalConfig\GenerateCommand as GenerateLocalXmlConfigCom
 use N98\Magento\Command\Database\DumpCommand as DatabaseDumpCommand;
 use N98\Magento\Command\Database\DropCommand as DatabaseDropCommand;
 use N98\Magento\Command\Database\InfoCommand as DatabaseInfoCommand;
+use N98\Magento\Command\Database\ImportCommand as DatabaseImportCommand;
 use N98\Magento\Command\Database\ConsoleCommand as DatabaseConsoleCommand;
 use N98\Magento\Command\Config\DumpCommand as ConfigPrintCommand;
 use N98\Magento\Command\Config\GetCommand as ConfigGetCommand;
@@ -27,6 +33,11 @@ use N98\Magento\Command\Admin\User\ChangePasswordCommand as ChangeAdminUserPassw
 use N98\Magento\Command\Admin\User\ListCommand as AdminUserListCommand;
 use N98\Magento\Command\Admin\User\CreateUserCommand as AdminUserCreateCommand;
 use N98\Magento\Command\Admin\DisableNotificationsCommand;
+use N98\Magento\Command\Customer\CreateCommand as CustomerCreateCommand;
+use N98\Magento\Command\Customer\ListCommand as CustomerListCommand;
+use N98\Magento\Command\Customer\ChangePasswordCommand as CustomerChangePasswordCommand;
+use N98\Magento\Command\Customer\CreateDummyCommand as CustomerCreateDummyCommand;
+use N98\Magento\Command\Customer\InfoCommand as CustomerInfoCommand;
 use N98\Magento\Command\Installer\InstallCommand;
 use N98\Magento\Command\Installer\UninstallCommand;
 use N98\Magento\Command\System\MaintenanceCommand as SystemMaintenanceCommand;
@@ -51,6 +62,9 @@ use N98\Magento\Command\Developer\Module\Rewrite\ListCommand as ModuleRewriteLis
 use N98\Magento\Command\Developer\Module\Rewrite\ConflictsCommand as ModuleRewriteConflictsCommand;
 use N98\Magento\Command\Developer\Module\CreateCommand as ModuleCreateCommand;
 use N98\Magento\Command\Developer\Module\Observer\ListCommand as ModuleObserverListCommand;
+use N98\Magento\Command\Developer\Theme\DuplicatesCommand as ThemeDuplicatesCommand;
+use N98\Magento\Command\Developer\Theme\ListCommand as ThemeListCommand;
+//use N98\Magento\Command\Developer\Theme\InfoCommand as ThemeInfoCommand;
 use N98\Magento\Command\MagentoConnect\ListExtensionsCommand as MagentoConnectionListExtensionsCommand;
 use N98\Magento\Command\MagentoConnect\InstallExtensionCommand as MagentoConnectionInstallExtensionCommand;
 use N98\Magento\Command\MagentoConnect\DownloadExtensionCommand as MagentoConnectionDownloadExtensionCommand;
@@ -58,7 +72,9 @@ use N98\Magento\Command\MagentoConnect\UpgradeExtensionCommand as MagentoConnect
 use N98\Magento\Command\Cms\Page\PublishCommand as MagentoCmsPagePublishCommand;
 use N98\Magento\Command\Cms\Banner\ToggleCommand as MagentoCmsBannerToggleCommand;
 use N98\Magento\Command\SelfUpdateCommand as SelfUpdateCommand;
+use N98\Magento\Command\OpenBrowserCommand;
 use N98\Util\OperatingSystem;
+use N98\Util\Console\Helper\ParameterHelper;
 use Xanido\Console\Helper\TableHelper;
 
 class Application extends BaseApplication
@@ -81,7 +97,7 @@ class Application extends BaseApplication
     /**
      * @var string
      */
-    const APP_VERSION = '1.40.2';
+    const APP_VERSION = '1.51.0';
 
     /**
      * @var \Composer\Autoload\ClassLoader
@@ -108,6 +124,14 @@ class Application extends BaseApplication
      */
     protected $_magentoMajorVersion = self::MAGENTO_MAJOR_VERSION_1;
 
+    private static $logo = "
+     ___ ___
+ _ _/ _ ( _ )___ _ __  __ _ __ _ ___ _ _ _  _ _ _
+| ' \_, / _ \___| '  \/ _` / _` / -_) '_| || | ' \
+|_||_/_/\___/   |_|_|_\__,_\__, \___|_|  \_,_|_||_|
+                           |___/
+";
+
     public function __construct($autoloader)
     {
         $this->autoloader = $autoloader;
@@ -129,6 +153,7 @@ class Application extends BaseApplication
         $this->add(new DatabaseDumpCommand());
         $this->add(new DatabaseDropCommand());
         $this->add(new DatabaseInfoCommand());
+        $this->add(new DatabaseImportCommand());
         $this->add(new DatabaseConsoleCommand());
         $this->add(new ConfigPrintCommand());
         $this->add(new ConfigGetCommand());
@@ -144,6 +169,11 @@ class Application extends BaseApplication
         $this->add(new ChangeAdminUserPasswordCommand());
         $this->add(new AdminUserListCommand());
         $this->add(new AdminUserCreateCommand());
+        $this->add(new CustomerCreateCommand());
+        $this->add(new CustomerListCommand());
+        $this->add(new CustomerChangePasswordCommand());
+        $this->add(new CustomerCreateDummyCommand());
+        $this->add(new CustomerInfoCommand());
         $this->add(new DisableNotificationsCommand());
         $this->add(new DesignDemoNoticeCommand());
         $this->add(new InstallCommand());
@@ -162,6 +192,9 @@ class Application extends BaseApplication
         $this->add(new TemplateHintsBlocksCommand());
         $this->add(new TranslateInlineShopCommand());
         $this->add(new TranslateInlineAdminCommand());
+        $this->add(new ThemeDuplicatesCommand());
+        $this->add(new ThemeListCommand());
+        //$this->add(new ThemeInfoCommand());
         $this->add(new ProfilerCommand());
         $this->add(new SymlinksCommand());
         $this->add(new DevelopmentLogCommand());
@@ -176,11 +209,28 @@ class Application extends BaseApplication
             $this->add(new MagentoConnectionInstallExtensionCommand());
             $this->add(new MagentoConnectionDownloadExtensionCommand());
             $this->add(new MagentoConnectionUpgradeExtensionCommand());
+            $this->add(new OpenBrowserCommand());
         }
 
         $this->add(new MagentoCmsPagePublishCommand());
         $this->add(new MagentoCmsBannerToggleCommand());
-        $this->add(new SelfUpdateCommand());
+
+        if ('phar:' === substr(__FILE__, 0, 5)) {
+            $this->add(new SelfUpdateCommand());
+        }
+    }
+
+    /**
+     * @return string
+     */
+    public function getHelp()
+    {
+        return self::$logo . parent::getHelp();
+    }
+
+    public function getLongVersion()
+    {
+        return parent::getLongVersion() . ' by <info>netz98 new media GmbH</info>';
     }
 
     /**
@@ -271,6 +321,7 @@ class Application extends BaseApplication
     {
         $helperSet = $this->getHelperSet();
         $helperSet->set(new TableHelper(), 'table');
+        $helperSet->set(new ParameterHelper(), 'parameter');
     }
 
     /**
@@ -324,5 +375,94 @@ class Application extends BaseApplication
     public function getConfig()
     {
         return $this->config;
+    }
+
+    /**
+     * @return bool
+     */
+    private function hasConfigCommandAliases()
+    {
+        return isset($this->config['commands']['aliases']) && is_array($this->config['commands']['aliases']);
+    }
+
+    /**
+     * Override standard command registration. We want alias support.
+     *
+     * @param \Symfony\Component\Console\Command\Command $command
+     * @return \Symfony\Component\Console\Command\Command
+     */
+    public function add(Command $command)
+    {
+        $this->registerConfigCommandAlias($command);
+
+        return parent::add($command);
+    }
+
+    /**
+     * @param \Symfony\Component\Console\Command\Command $command
+     */
+    protected function registerConfigCommandAlias(Command $command)
+    {
+        if ($this->hasConfigCommandAliases()) {
+            foreach ($this->config['commands']['aliases'] as $alias) {
+                if (!is_array($alias)) {
+                    continue;
+                }
+
+                $aliasCommandName = key($alias);
+                $commandString = $alias[$aliasCommandName];
+
+                $originalCommand = array_shift(explode(' ', $commandString));
+                if ($command->getName() == $originalCommand) {
+                    $currentCommandAliases = $command->getAliases();
+                    $currentCommandAliases[] = $aliasCommandName;
+                    $command->setAliases($currentCommandAliases);
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs the current application with possible command aliases
+     *
+     * @param InputInterface  $input  An Input instance
+     * @param OutputInterface $output An Output instance
+     *
+     * @return integer 0 if everything went fine, or an error code
+     */
+    public function doRun(InputInterface $input, OutputInterface $output)
+    {
+        $input = $this->checkConfigCommandAlias($input);
+
+        parent::doRun($input, $output);
+    }
+
+    /**
+     * @param \Symfony\Component\Console\Input\InputInterface $input
+     * @return \Symfony\Component\Console\Input\ArgvInput|\Symfony\Component\Console\Input\InputInterface
+     */
+    protected function checkConfigCommandAlias(InputInterface $input)
+    {
+        if ($this->hasConfigCommandAliases()) {
+            foreach ($this->config['commands']['aliases'] as $alias) {
+                if (is_array($alias)) {
+                    $aliasCommandName = key($alias);
+                    if ($input->getFirstArgument() == $aliasCommandName) {
+                        $aliasCommandParams = array_slice(String::trimExplodeEmpty(' ', $alias[$aliasCommandName]), 1);
+                        if (count($aliasCommandParams) > 0) {
+                            // replace with aliased data
+                            $mergedParams = array_merge(
+                                array_slice($_SERVER['argv'], 0, 2),
+                                $aliasCommandParams,
+                                array_slice($_SERVER['argv'], 2)
+                            );
+                            $input = new ArgvInput($mergedParams);
+                        }
+                    }
+                }
+            }
+            return $input;
+        }
+        return $input;
     }
 }

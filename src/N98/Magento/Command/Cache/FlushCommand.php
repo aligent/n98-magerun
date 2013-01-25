@@ -13,8 +13,6 @@ class FlushCommand extends AbstractCacheCommand
     {
         $this
             ->setName('cache:flush')
-            ->setAliases(array('cache:clear'))
-            ->addDeprecatedAlias('cache:clear', 'Please use cache:flush')
             ->setDescription('Flush magento cache storage')
         ;
     }
@@ -28,6 +26,8 @@ class FlushCommand extends AbstractCacheCommand
     {
         $this->detectMagento($output, true);
         if ($this->initMagento()) {
+
+            \Mage::app()->loadAreaPart('adminhtml');
             \Mage::dispatchEvent('adminhtml_cache_flush_all', array('output' => $output));
             \Mage::app()->getCacheInstance()->flush();
             $output->writeln('<info>Cache cleared</info>');

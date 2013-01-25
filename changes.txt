@@ -1,24 +1,21 @@
-1.40.2
+1.51.0
 ======
 
-- Little fix for self-update command by @therouv.
+* Added --junit-log option to dev:theme:duplicates command
 
-1.40.1
+1.50.1
 ======
 
-- Issue #66 Undefined property in CheckCommand.php
+* Changed composer.json generation: "magento-hackathon/magento-composer-installer" version by @Vinai
 
-1.40.0
+1.50.0
 ======
 
-- Added new commands "db:drop" and "uninstall"
-- Changed coloring of some command outputs
-- Replaced deleted mageLTS repos with magento-mirror
-- Added Magento 2 installer (experimental)
-- sys:setup:run command now clear cache automatically
-- Removed media/xmlconnect check in sys:check command
+* Added new experimental command "open-browser".
 
-Please not that there are some deprecated command prefixes:
+1.49.0
+======
 
-- system -> use sys
-- database -> use db
+* Removed deprecated alias "system:check" -> Use sys:check
+* Added new options to dev:module:create "--add-composer", "--author-email", "--author-name"
+* Made readme generation in dev:module:create command optional by option "--add-readme"

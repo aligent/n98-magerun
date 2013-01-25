@@ -80,6 +80,86 @@ If you don't have installed the .phar file system wide you can call it with the 
 
    php n98-magerun.phar list
 
+
+Open Shop in Browser
+""""""""""""""""""""
+
+.. code-block:: sh
+
+   $ n98-magerun.phar open-browser [store]
+
+Customer Info
+"""""""""""""
+
+Loads basic customer info by email address.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar  customer:info [email] [website]
+
+
+Create customer
+"""""""""""""""
+
+Creates a new customer/user for shop frontend.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar  customer:create [email] [password] [firstname] [lastname] [website]
+
+Example:
+
+.. code-block:: sh
+
+  $ n98-magerun.phar customer:create foo@example.com password123 John Doe base
+
+Generate Dummy Customers
+""""""""""""""""""""""""
+
+Generate dummy customers. You can specify a count and a locale.
+
+.. code-block:: sh
+
+  $ n98-magerun.phar customer:create:dummy count locale [website]
+
+
+Supported Locales:
+
+    * cs_CZ
+    * ru_RU
+    * bg_BG
+    * en_US
+    * it_IT
+    * sr_RS
+    * sr_Cyrl_RS
+    * sr_Latn_RS
+    * pl_PL
+    * en_GB
+    * de_DE
+    * sk_SK
+    * fr_FR
+    * es_AR
+    * de_AT
+
+List Customers
+""""""""""""""
+
+List customers. The output is limited to 1000 (can be changed by overriding config).
+If search parameter is given the customers are filtered (searchs in firstname, lastname and email).
+
+.. code-block:: sh
+
+   $ n98-magerun.phar  customer:list [search]
+
+Change customer password
+""""""""""""""""""""""""
+
+.. code-block:: sh
+
+   $ n98-magerun.phar customer:change-password [email] [password] [website]
+
+- Website parameter must only be given if more than one websites are available.
+
 Print database information
 """""""""""""""""""""""""""
 
@@ -144,6 +224,17 @@ Available Table Groups:
 Extended: https://github.com/netz98/n98-magerun/wiki/Stripped-Database-Dumps
 
 See it in action: http://youtu.be/ttjZHY6vThs
+
+Database Import
+"""""""""""""""
+
+Imports an SQL file with mysql cli client into current configured database.
+
+* Requires MySQL CLI tools
+
+.. code-block:: sh
+
+   $ n98-magerun.phar db:import [--only-command] [filename]
 
 Database Console / MySQL Client
 """""""""""""""""""""""""""""""
@@ -356,12 +447,14 @@ Toggle admin notifications.
 
    $ n98-magerun.phar admin:notifications
 
-Toggle maintenance mode
+Maintenance mode
 """""""""""""""""""""""
+
+If no option is provided it toggles the mode on every call.
 
 .. code-block:: sh
 
-   $ n98-magerun.phar sys:maintenance
+   $ n98-magerun.phar sys:maintenance [--on] [--off]
 
 Magento system info
 """"""""""""""""""""
@@ -557,7 +650,7 @@ Creates an empty module and registers it in current magento shop:
 
 .. code-block:: sh
 
-   $ n98-magerun.phar dev:module:create [--add-blocks] [--add-helpers] [--add-models] [--add-all] [--modman] vendorNamespace moduleName [codePool]
+   $ n98-magerun.phar dev:module:create [--add-blocks] [--add-helpers] [--add-models] [--add-all] [--modman] [--add-readme] [--add-composer] [--author-name[="..."]] [--author-email[="..."]] [--description[="..."]] vendorNamespace moduleName [codePool]
 
 Code-Pool defaults to `local`.
 
@@ -573,6 +666,14 @@ Example:
 Run this command inside your `.modman` folder.
 
 * --add-all option add blocks, helpers and models.
+
+* --add-readme Adds a readme.md file to your module.
+
+* --add-composer Adds a composer.json to your module.
+
+* --author-email Author email for composer.json file.
+
+* --author-name Author name for composer.json file.
 
 List Modules
 """"""""""""
@@ -613,6 +714,35 @@ Lists all registered observer by type.
 
 Type is one of "adminhtml", "global", "frontend".
 
+Theme List
+""""""""""
+
+Lists all frontend themes
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:theme:list
+
+
+Find Duplicates in your theme
+"""""""""""""""""""""""""""""
+
+Find duplicate files (templates, layout, locale, etc.) between two themes.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:theme:duplicates [--log-junit="..."] theme [originalTheme]
+
+* `originTheme` default is "base/default".
+
+Example:
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:theme:duplicates default/default
+
+
+* If a filename with `--log-junit` option is set the tool generates an XML file and no output to *stdout*.
 
 List Extensions
 """""""""""""""
@@ -676,9 +806,24 @@ Since version 1.1.0 we deliver a Magento installer which does the following:
 * Starts Magento installer
 * Sets rewrite base in .htaccess file
 
+Interactive installer:
+
 .. code-block:: sh
 
    $ n98-magerun.phar install
+
+Unattended installation:
+
+.. code-block:: sh
+
+   $ n98-magerun.phar install [--magentoVersion[="..."]] [--magentoVersionByName[="..."]] [--installationFolder[="..."]] [--dbHost[="..."]] [--dbUser[="..."]] [--dbPass[="..."]] [--dbName[="..."]] [--installSampleData[="..."]] [--useDefaultConfigParams[="..."]] [--baseUrl[="..."]] [--replaceHtaccessFile[="..."]]
+
+Example of an unattended Magento CE 1.7.0.2 installation:
+
+.. code-block:: sh
+
+   $ n98-magerun.phar install --dbHost="localhost" --dbUser="mydbuser" --dbPass="mysecret" --dbName="magentodb" --installSampleData=yes --useDefaultConfigParams=yes --magentoVersionByName="magento-ce-1.7.0.2" --installationFolder="magento" --baseUrl="http://magento.localdomain/"
+
 
 Magento Uninstaller
 """""""""""""""""""
@@ -789,3 +934,4 @@ Thanks to
 
 * Symfony2 Team for the great console component.
 * Composer Team for the downloader backend and the self-update command.
+* Francois Zaninotto for great Faker library

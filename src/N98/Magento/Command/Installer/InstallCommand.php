@@ -31,6 +31,17 @@ class InstallCommand extends AbstractMagentoCommand
     {
         $this
             ->setName('install')
+            ->addOption('magentoVersion', null, InputOption::VALUE_OPTIONAL, 'Magento version')
+            ->addOption('magentoVersionByName', null, InputOption::VALUE_OPTIONAL, 'Magento version name instead of order number')
+            ->addOption('installationFolder', null, InputOption::VALUE_OPTIONAL, 'Installation folder')
+            ->addOption('dbHost', null, InputOption::VALUE_OPTIONAL, 'Database host')
+            ->addOption('dbUser', null, InputOption::VALUE_OPTIONAL, 'Database user')
+            ->addOption('dbPass', null, InputOption::VALUE_OPTIONAL, 'Database password')
+            ->addOption('dbName', null, InputOption::VALUE_OPTIONAL, 'Database name')
+            ->addOption('installSampleData', null, InputOption::VALUE_OPTIONAL, 'Install sample data')
+            ->addOption('useDefaultConfigParams', null, InputOption::VALUE_OPTIONAL, 'Use default installation parameters defined in the yaml file')
+            ->addOption('baseUrl', null, InputOption::VALUE_OPTIONAL, 'Installation base url')
+            ->addOption('replaceHtaccessFile', null, InputOption::VALUE_OPTIONAL, 'Generate htaccess file (for non vhost environment)')
             ->setDescription('Install magento')
         ;
 
@@ -52,10 +63,13 @@ class InstallCommand extends AbstractMagentoCommand
     {
         $this->commandConfig = $this->getCommandConfig();
         $this->writeSection($output, 'Magento Installation');
+        if (!extension_loaded('pdo_mysql')) {
+            throw new \RuntimeException('PHP extension pdo_mysql is required to start installation');
+        }
         $this->selectMagentoVersion($input, $output);
         $this->chooseInstallationFolder($input, $output);
         $this->downloadMagento($input, $output);
-        $this->createDatabase($output);
+        $this->createDatabase($input, $output);
         $this->installSampleData($input, $output);
         $this->setDirectoryPermissions($output);
         $this->installMagento($input, $output, $this->config['installationFolder']);
@@ -68,20 +82,41 @@ class InstallCommand extends AbstractMagentoCommand
      */
     protected function selectMagentoVersion(InputInterface $input, OutputInterface $output)
     {
-        $question = array();
-        foreach ($this->commandConfig['magento-packages'] as $key => $package) {
-            $question[] = '<comment>' . str_pad('[' . ($key + 1) . ']', 4, ' ') . '</comment> ' . $package['name'] . "\n";
-        }
-        $question[] = "<question>Choose a magento version:</question> ";
+        if ($input->getOption('magentoVersion') == null && $input->getOption('magentoVersionByName') == null) {
+            $question = array();
+            foreach ($this->commandConfig['magento-packages'] as $key => $package) {
+                $question[] = '<comment>' . str_pad('[' . ($key + 1) . ']', 4, ' ') . '</comment> ' . $package['name'] . "\n";
+            }
+            $question[] = "<question>Choose a magento version:</question> ";
 
-        $commandConfig = $this->commandConfig;
-        $type = $this->getHelper('dialog')->askAndValidate($output, $question, function($typeInput) use ($commandConfig) {
-            if (!in_array($typeInput, range(1, count($commandConfig['magento-packages'])))) {
-                throw new \InvalidArgumentException('Invalid type');
+            $commandConfig = $this->commandConfig;
+
+
+            $type = $this->getHelper('dialog')->askAndValidate($output, $question, function($typeInput) use ($commandConfig) {
+                if (!in_array($typeInput, range(1, count($commandConfig['magento-packages'])))) {
+                    throw new \InvalidArgumentException('Invalid type');
+                }
+
+                return $typeInput;
+            });
+        } else {
+            $type = null;
+
+            if ($input->getOption('magentoVersion')) {
+                $type = $input->getOption('magentoVersion');
+            } elseif ($input->getOption('magentoVersionByName')) {
+                foreach ($this->commandConfig['magento-packages'] as $key => $package) {
+                    if ($package['name'] == $input->getOption('magentoVersionByName')) {
+                        $type = $key+1;
+                        break;
+                    }
+                }
             }
 
-            return $typeInput;
-        });
+            if ($type == null) {
+                throw new \InvalidArgumentException('Unable to locate Magento version');
+            }
+        }
 
         $this->config['magentoVersionData'] = $this->commandConfig['magento-packages'][$type - 1];
     }
@@ -92,10 +127,7 @@ class InstallCommand extends AbstractMagentoCommand
      */
     protected function chooseInstallationFolder(InputInterface $input, OutputInterface $output)
     {
-        $defaultFolder = './magento';
-        $question[] = "<question>Enter installation folder:</question> [<comment>" . $defaultFolder . "</comment>]";
-
-        $installationFolder = $this->getHelper('dialog')->askAndValidate($output, $question, function($folderName) {
+        $validateInstallationFolder = function($folderName) {
             if (!is_dir($folderName)) {
                 if (!mkdir($folderName)) {
                     throw new \InvalidArgumentException('Cannot create folder.');
@@ -107,9 +139,25 @@ class InstallCommand extends AbstractMagentoCommand
             }
 
             return $folderName;
-        }, false, $defaultFolder);
+        };
+
+        if (($installationFolder = $input->getOption('installationFolder')) == null) {
+            $defaultFolder = './magento';
+            $question[] = "<question>Enter installation folder:</question> [<comment>" . $defaultFolder . "</comment>]";
+
+            $installationFolder = $this->getHelper('dialog')->askAndValidate($output, $question, $validateInstallationFolder, false, $defaultFolder);
+
+        } else {
+            // @Todo improve validation and bring it to 1 single function
+            $installationFolder = $validateInstallationFolder($installationFolder);
+
+        }
 
         $this->config['installationFolder'] = $installationFolder;
+    }
+
+    protected function test($folderName) {
+
     }
 
     /**
@@ -153,8 +201,8 @@ class InstallCommand extends AbstractMagentoCommand
     protected function patchMagentoInstallerForPHP54($magentoFolder)
     {
         $installerConfig = $magentoFolder
-                         . DIRECTORY_SEPARATOR
-                         . 'app/code/core/Mage/Install/etc/config.xml';
+            . DIRECTORY_SEPARATOR
+            . 'app/code/core/Mage/Install/etc/config.xml';
         if (file_exists($installerConfig)) {
             $xml = file_get_contents($installerConfig);
             file_put_contents($installerConfig, str_replace('<pdo_mysql/>', '<pdo_mysql>1</pdo_mysql>', $xml));
@@ -164,7 +212,7 @@ class InstallCommand extends AbstractMagentoCommand
     /**
      * @param \Symfony\Component\Console\Output\OutputInterface $output
      */
-    protected function createDatabase(OutputInterface $output)
+    protected function createDatabase(InputInterface $input, OutputInterface $output)
     {
         $dialog = $this->getHelperSet()->get('dialog');
 
@@ -172,10 +220,10 @@ class InstallCommand extends AbstractMagentoCommand
          * Database
          */
         do {
-            $this->config['db_host'] = $dialog->askAndValidate($output, '<question>Please enter the database host:</question> <comment>[localhost]</comment>: ', $this->notEmptyCallback, false, 'localhost');
-            $this->config['db_user'] = $dialog->askAndValidate($output, '<question>Please enter the database username:</question> ', $this->notEmptyCallback);
-            $this->config['db_pass'] = $dialog->ask($output, '<question>Please enter the database password:</question> ');
-            $this->config['db_name'] = $dialog->askAndValidate($output, '<question>Please enter the database name:</question> ', $this->notEmptyCallback);
+            $this->config['db_host'] = ($input->getOption('dbHost') !== null) ? $input->getOption('dbHost') : $dialog->askAndValidate($output, '<question>Please enter the database host:</question> <comment>[localhost]</comment>: ', $this->notEmptyCallback, false, 'localhost');
+            $this->config['db_user'] = ($input->getOption('dbUser') !== null) ? $input->getOption('dbUser') : $dialog->askAndValidate($output, '<question>Please enter the database username:</question> ', $this->notEmptyCallback);
+            $this->config['db_pass'] = ($input->getOption('dbPass') !== null) ? $input->getOption('dbPass') : $dialog->ask($output, '<question>Please enter the database password:</question> ');
+            $this->config['db_name'] = ($input->getOption('dbName') !== null) ? $input->getOption('dbName') : $dialog->askAndValidate($output, '<question>Please enter the database name:</question> ', $this->notEmptyCallback);
             $db = $this->validateDatabaseSettings($output);
         } while ($db === false);
 
@@ -221,7 +269,9 @@ class InstallCommand extends AbstractMagentoCommand
         }
 
         $dialog = $this->getHelperSet()->get('dialog');
-        $installSampleData = $dialog->askConfirmation($output, '<question>Install sample data?</question> <comment>[y]</comment>: ');
+
+        $installSampleData = ($input->getOption('installSampleData') !== null) ? $this->_parseBoolOption($input->getOption('installSampleData')) : $dialog->askConfirmation($output, '<question>Install sample data?</question> <comment>[y]</comment>: ');
+
         if ($installSampleData) {
             foreach ($this->commandConfig['demo-data-packages'] as $demoPackageData) {
                 if ($demoPackageData['name'] == $extra['sample-data']) {
@@ -234,8 +284,8 @@ class InstallCommand extends AbstractMagentoCommand
                     );
 
                     $expandedFolder = $this->config['installationFolder']
-                                    . DIRECTORY_SEPARATOR
-                                    . str_replace(array('.tar.gz', '.tar.bz2', '.zip'), '', basename($package->getDistUrl()));
+                        . DIRECTORY_SEPARATOR
+                        . str_replace(array('.tar.gz', '.tar.bz2', '.zip'), '', basename($package->getDistUrl()));
                     if (is_dir($expandedFolder)) {
                         $filesystem = new Filesystem();
                         $filesystem->recursiveCopy(
@@ -252,14 +302,14 @@ class InstallCommand extends AbstractMagentoCommand
                         $os = new OperatingSystem();
                         if ($os->isProgramInstalled('mysql')) {
                             $exec = 'mysql '
-                                  . '-h' . escapeshellarg(strval($this->config['db_host']))
-                                  . ' '
-                                  . '-u' . escapeshellarg(strval($this->config['db_user']))
-                                  . ' '
-                                  . (!strval($this->config['db_pass'] == '') ? '-p' . escapeshellarg($this->config['db_pass']) . ' ' : '')
-                                  . strval($this->config['db_name'])
-                                  . ' < '
-                                  . escapeshellarg($sampleDataSqlFile[0]);
+                                . '-h' . escapeshellarg(strval($this->config['db_host']))
+                                . ' '
+                                . '-u' . escapeshellarg(strval($this->config['db_user']))
+                                . ' '
+                                . (!strval($this->config['db_pass'] == '') ? '-p' . escapeshellarg($this->config['db_pass']) . ' ' : '')
+                                . strval($this->config['db_name'])
+                                . ' < '
+                                . escapeshellarg($sampleDataSqlFile[0]);
                             $output->writeln('<info>Importing <comment>' . $sampleDataSqlFile[0] . '</comment> with mysql cli client</info>');
                             exec($exec);
                             @unlink($sampleDataSqlFile);
@@ -287,13 +337,15 @@ class InstallCommand extends AbstractMagentoCommand
 
         $defaults = $this->commandConfig['installation']['defaults'];
 
-        $sessionSave = $dialog->ask(
+        $useDefaultConfigParams = $this->_parseBoolOption($input->getOption('useDefaultConfigParams'));
+        
+        $sessionSave = $useDefaultConfigParams ? $defaults['session_save'] : $dialog->ask(
             $output,
             '<question>Please enter the session save:</question> <comment>[' . $defaults['session_save'] . ']</comment>: ',
             $defaults['session_save']
         );
 
-        $adminFrontname = $dialog->askAndValidate(
+        $adminFrontname = $useDefaultConfigParams ? $defaults['admin_frontname'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the admin frontname:</question> <comment>[' . $defaults['admin_frontname'] . ']</comment> ',
             $this->notEmptyCallback,
@@ -301,7 +353,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['admin_frontname']
         );
 
-        $currency = $dialog->askAndValidate(
+        $currency = $useDefaultConfigParams ? $defaults['currency'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the default currency code:</question> <comment>[' . $defaults['currency'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -309,7 +361,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['currency']
         );
 
-        $locale = $dialog->askAndValidate(
+        $locale = $useDefaultConfigParams ? $defaults['locale'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the locale code:</question> <comment>[' . $defaults['locale'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -317,7 +369,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['locale']
         );
 
-        $timezone = $dialog->askAndValidate(
+        $timezone = $useDefaultConfigParams ? $defaults['timezone'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the timezone:</question> <comment>[' . $defaults['timezone'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -325,7 +377,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['timezone']
         );
 
-        $adminUsername = $dialog->askAndValidate(
+        $adminUsername = $useDefaultConfigParams ? $defaults['admin_username'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the admin username:</question> <comment>[' . $defaults['admin_username'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -333,7 +385,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['admin_username']
         );
 
-        $adminPassword = $dialog->askAndValidate(
+        $adminPassword = $useDefaultConfigParams ? $defaults['admin_password'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the admin password:</question> <comment>[' . $defaults['admin_password'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -341,7 +393,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['admin_password']
         );
 
-        $adminFirstname = $dialog->askAndValidate(
+        $adminFirstname = $useDefaultConfigParams ? $defaults['admin_firstname'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the admin\'s firstname:</question> <comment>[' . $defaults['admin_firstname'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -349,7 +401,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['admin_firstname']
         );
 
-        $adminLastname = $dialog->askAndValidate(
+        $adminLastname = $useDefaultConfigParams ? $defaults['admin_lastname'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the admin\'s lastname:</question> <comment>[' . $defaults['admin_lastname'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -357,7 +409,7 @@ class InstallCommand extends AbstractMagentoCommand
             $defaults['admin_lastname']
         );
 
-        $adminEmail = $dialog->askAndValidate(
+        $adminEmail = $useDefaultConfigParams ? $defaults['admin_email'] : $dialog->askAndValidate(
             $output,
             '<question>Please enter the admin\'s email:</question> <comment>[' . $defaults['admin_email'] . ']</comment>: ',
             $this->notEmptyCallback,
@@ -375,7 +427,7 @@ class InstallCommand extends AbstractMagentoCommand
             return $input;
         };
 
-        $baseUrl = $dialog->askAndValidate(
+        $baseUrl = ($input->getOption('baseUrl') !== null) ? $input->getOption('baseUrl') : $dialog->askAndValidate(
             $output,
             '<question>Please enter the base url:</question> ',
             $validateBaseUrl,
@@ -415,16 +467,34 @@ class InstallCommand extends AbstractMagentoCommand
         $output->writeln('<info>Start installation process.</info>');
         $output->writeln('<comment>/usr/bin/env php ' . $this->getInstallScriptPath() . ' ' . $installArgs . '</comment>');
         exec('/usr/bin/env php ' . $this->getInstallScriptPath() . ' ' . $installArgs);
-        
+
         $dialog = $this->getHelperSet()->get('dialog');
-        if ($dialog->askConfirmation($output, '<question>Write BaseURL to .htaccess file?</question> <comment>[n]</comment>: ', false)) {
-            $this->replaceHtaccessFile($baseUrl);
+
+        /**
+         * Htaccess file
+         */
+        if ($input->getOption('useDefaultConfigParams') == null || $input->getOption('replaceHtaccessFile') != null) {
+            $replaceHtaccessFile = false;
+
+            if ($this->_parseBoolOption($input->getOption('replaceHtaccessFile'))) {
+                $replaceHtaccessFile = true;
+            } elseif ($dialog->askConfirmation(
+                $output,
+                '<question>Write BaseURL to .htaccess file?</question> <comment>[n]</comment>: ',
+                false)
+            ) {
+                $replaceHtaccessFile = true;
+            }
+
+            if ($replaceHtaccessFile) {
+                $this->replaceHtaccessFile($baseUrl);
+            }
         }
 
         chdir($this->config['installationFolder']);
         $output->writeln('<info>Reindex all after installation</info>');
         $this->getApplication()->run(new StringInput('index:reindex:all'), $output);
-
+        $this->getApplication()->run(new StringInput('sys:check'), $output);
         $output->writeln('<info>Successfully installed magento</info>');
     }
 

@@ -14,8 +14,6 @@ class CompareVersionsCommand extends AbstractMagentoCommand
         $this
             ->setName('sys:setup:compare-versions')
             ->addOption('ignore-data', null, InputOption::VALUE_NONE, 'Ignore data updates')
-            ->setAliases(array('system:setup:compare-versions'))
-            ->addDeprecatedAlias('system:setup:compare-versions', 'Please use sys:setup:compare-versions')
             ->setDescription('Compare module version with core_resource table.');
     }
 
@@ -83,13 +81,13 @@ class CompareVersionsCommand extends AbstractMagentoCommand
                 $table->appendRow($row);
             }
 
-            if (count($table) > 0) {
+            $output->write($table->render());
+
+            if ($errorCounter > 0) {
                 $output->writeln('<error>' . $errorCounter . ' error' . ($errorCounter > 1 ? 's' : '') . ' was found!</error>');
             } else {
-                $output->writeln('<info>No setup problems was found.</info>');
+                $this->writeSection($output, 'No setup problems was found.', 'info');
             }
-
-            $output->write($table->render());
         }
     }
 }
