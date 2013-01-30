@@ -1,0 +1,16 @@
+<?php echo <<<EOS
+<?php
+/* @var \$this $blockClass */
+?>
+<div class="widget-$widgetId">
+
+EOS;
+?>
+<?php foreach ($widgetParameters as $param) : ?>
+<?php if (isset($param['id'])) : ?>
+    <p><?php echo sprintf('<?php echo $this->%s ?>', $param['id']) ?></p>
+<?php endif ?>
+<?php endforeach; ?>
+<?php echo <<<EOS
+</div>
+EOS;

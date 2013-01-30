@@ -1,0 +1,18 @@
+<?php echo '<?php'; ?>
+
+/**
+<?php foreach ($widgetParameters as $param): ?>
+<?php if (isset ($param[id])) : ?>
+ * @property string $<?php echo $param['id']; if (isset($param['label'])): echo " $param[label]"; endif; ?>
+
+<?php endif; ?>
+<?php endforeach; ?>
+ */
+class <?php echo $blockClass ?> extends Mage_Core_Block_Template implements Mage_Widget_Block_Interface {
+
+    protected function _construct() {
+        $this->template = '<?php echo $moduleId . '/widget/' . $widgetId . '.phtml'; ?>';
+        parent::_construct();
+    }
+
+}

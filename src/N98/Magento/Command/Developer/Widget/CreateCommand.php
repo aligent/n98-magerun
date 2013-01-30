@@ -62,7 +62,7 @@ class CreateCommand extends AbstractMagentoCommand {
      * @var string
      */
     protected $widgetName;
-    
+
     /**
      * @var string
      */
@@ -99,6 +99,7 @@ class CreateCommand extends AbstractMagentoCommand {
 
     protected function execute(InputInterface $input, OutputInterface $output) {
         $this->detectMagento($output);
+        $this->initMagento();
         $this->baseFolder = __DIR__ . '/../../../../../../res/widget/create';
         $this->vendorNamespace = ucfirst($input->getArgument('vendorNamespace'));
         $this->moduleName = ucfirst($input->getArgument('moduleName'));
@@ -108,7 +109,7 @@ class CreateCommand extends AbstractMagentoCommand {
         $this->widgetName = $input->getArgument('widgetName');
         $this->designPackage = $input->getArgument('designPackage');
         $this->designTheme = $input->getArgument('designTheme');
-        $this->widgetParameters = $input->getArgument('widgetParameter');
+        $this->widgetParameters = $this->normaliseParameters($input->getArgument('widgetParameter'));
 
         if (!in_array($this->codePool, array('local', 'community'))) {
             throw new InvalidArgumentException('Code pool must "community" or "local"');
@@ -116,13 +117,33 @@ class CreateCommand extends AbstractMagentoCommand {
 
         $this->initView($input);
         $this->createDirectories($output);
-        
+
         if (!file_exists($this->getWidgetXmlFilename())) {
             $this->writeWidgetXml($input, $output);
         }
         $this->updateWidgetXml($input, $output);
         $this->writeWidgetBlock($input, $output);
         $this->writeWidgetTemplate($input, $output);
+    }
+
+    protected function normaliseParameters($parameters) {
+        $normalisedParameters = array();
+        foreach ($parameters as $paramString) {
+            $tmpParams = explode(',', $paramString);
+            $params = array();
+            foreach ($tmpParams as $tmp) {
+                list($tmpKey, $tmpVal) = explode('=', $tmp);
+                $params[$tmpKey] = $tmpVal;
+            }
+            if (isset($params['id'])) {
+                $normalisedParameters[$params['id']] = $params;
+            } else {
+                $normalisedParameters[] = $params;
+            }
+            unset($params);
+            unset($tmpParams);
+        }
+        return $normalisedParameters;
     }
 
     protected function createDirectories(OutputInterface $output) {
@@ -146,7 +167,7 @@ class CreateCommand extends AbstractMagentoCommand {
         }
         return $moduleDir;
     }
-    
+
     protected function getDesignDir() {
         $designDir = $this->_magentoRootFolder
                 . '/app/design/frontend'
@@ -157,15 +178,19 @@ class CreateCommand extends AbstractMagentoCommand {
         }
         return $designDir;
     }
-    
+
     protected function getWidgetBlockDir() {
         return $this->getModuleDir() . '/Block/Widget';
     }
-    
+
+    protected function getWidgetBlockFilename() {
+        return $this->getWidgetBlockDir() . '/' . ucfirst($this->widgetId) . '.php';
+    }
+
     protected function getWidgetTemplateDir() {
         return $this->getDesignDir() . '/template/' . $this->moduleId . '/widget';
     }
-    
+
     protected function getWidgetTemplateFilename() {
         return $this->getWidgetTemplateDir() . '/' . $this->widgetId . '.phtml';
     }
@@ -173,7 +198,7 @@ class CreateCommand extends AbstractMagentoCommand {
     protected function getWidgetXmlFilename() {
         return $this->getModuleDir() . '/etc/widget.xml';
     }
-    
+
     protected function initView(InputInterface $input) {
         $view = new PhpView();
         $view->assign('vendorNamespace', $this->vendorNamespace);
@@ -187,25 +212,44 @@ class CreateCommand extends AbstractMagentoCommand {
         $view->assign('authorName', $input->getOption('author-name'));
         $view->assign('authorEmail', $input->getOption('author-email'));
         $view->assign('description', $input->getOption('description'));
+        $view->assign('blockClass', sprintf('%s_%s_Block_Widget_%s', $this->vendorNamespace, $this->moduleName, ucfirst($this->widgetId)));
         $this->view = $view;
     }
-    
+
     protected function updateWidgetXml(InputInterface $input, OutputInterface $output) {
-        
+        $this->view->setTemplate($this->baseFolder . '/widget.part.xml.phtml');
+        $newWidgetXmlString = $this->view->render();
+        $newWidgetXml = new \Varien_Simplexml_Element($newWidgetXmlString);
+        $outfile = $this->getWidgetXmlFilename();
+        $widgetXml = new \Varien_Simplexml_Element(file_get_contents($outfile));
+        $widgetXml->extendChild($newWidgetXml, true);
+        $widgetXml->asXML($outfile);
+        $output->writeln(sprintf('<info>Updated file: <comment>%s</comment></info>'), $outfile);
     }
-    
+
     protected function writeWidgetXml(InputInterface $input, OutputInterface $output) {
-        
+        $this->view->setTemplate($this->baseFolder . '/widget.xml.phtml');
+        $outfile = $this->getWidgetXmlFilename();
+        file_put_contents($outfile, $this->view->render());
+        $output->writeln(sprintf('<info>Created file: <comment>%s</comment></info>'), $outfile);
     }
-    
+
     protected function writeWidgetBlock(InputInterface $input, OutputInterface $output) {
-        
+        $templateFilename = $this->baseFolder . '/widget.block.phtml';
+        $outfile = $this->getWidgetBlockFilename();
+        $this->writeTemplate($input, $output, $templateFilename, $outfile);
     }
-    
+
     protected function writeWidgetTemplate(InputInterface $input, OutputInterface $output) {
-        
+        $templateFilename = $this->baseFolder . '/widget.template.phtml';
+        $outfile = $this->getWidgetTemplateFilename();
+        $this->writeTemplate($input, $output, $templateFilename, $outfile);
     }
-    
-    
+
+    protected function writeTemplate(InputInterface $input, OutputInterface $output, $templateFilename, $outfile) {
+        $this->view->setTemplate($templateFilename);
+        file_put_contents($outfile, $this->view->render());
+        $output->writeln(sprintf('<info>Created file: <comment>%s</comment></info>'), $outfile);
+    }
 
 }
