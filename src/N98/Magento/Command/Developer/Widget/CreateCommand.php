@@ -81,19 +81,23 @@ class CreateCommand extends AbstractMagentoCommand {
     protected function configure() {
         $this
                 ->setName('dev:widget:create')
-                ->addArgument('vendorNamespace', InputArgument::REQUIRED, 'Namespace (your company prefix)')
-                ->addArgument('moduleName', InputArgument::REQUIRED, 'Name of your module.')
+                ->addArgument('vendorNamespace', InputArgument::REQUIRED, 'Namespace (your company prefix, Case sensitive, eg. Foo)')
+                ->addArgument('moduleName', InputArgument::REQUIRED, 'Name of your module. (Case sensitive, eg. Bar)')
                 ->addArgument('codePool', InputArgument::REQUIRED, 'Codepool (local,community)')
-                ->addArgument('moduleId', InputArgument::REQUIRED, 'The identifier for the module')
-                ->addArgument('widgetId', InputArgument::REQUIRED, 'The identifier for the widget')
-                ->addArgument('widgetName', InputArgument::REQUIRED, 'The name of the widget')
-                ->addArgument('designPackage', InputArgument::REQUIRED, 'The design package')
-                ->addArgument('designTheme', InputArgument::REQUIRED, 'The design theme')
-                ->addArgument('widgetParameter', InputArgument::IS_ARRAY, 'A list of widget parameters, eg: id=title,label=Title,required=1,visible=1,type=text,sort_order=10')
+                ->addArgument('moduleId', InputArgument::REQUIRED, 'The identifier for the module (Case sensitive, eg. foo_bar)')
+                ->addArgument('widgetId', InputArgument::REQUIRED, 'The identifier for the widget (Case sensitive, eg. my_widget)')
+                ->addArgument('widgetName', InputArgument::REQUIRED, 'The name of the widget (Human readable name, eg "My Widget Name" - use quotes if there are spaces)')
+                ->addArgument('designPackage', InputArgument::REQUIRED, 'The design package (Case sensitive, eg. base)')
+                ->addArgument('designTheme', InputArgument::REQUIRED, 'The design theme (Case sensitive, eg. default)')
+                ->addArgument('widgetParameter', InputArgument::IS_ARRAY, 'A list of widget parameters, eg: id=title,label=Title,required=1,visible=1,type=text,sort_order=10 (Quote values if they contain spaces)')
                 ->addOption('author-name', null, InputOption::VALUE_OPTIONAL, 'Author for docblock comments')
                 ->addOption('author-email', null, InputOption::VALUE_OPTIONAL, 'Author email for docblock comments')
                 ->addOption('description', null, InputOption::VALUE_OPTIONAL, 'Description docblock comments')
-                ->setDescription('Creates an registers new magento widget.')
+                ->setDescription('Creates an registers new magento widget.' 
+                        . ' Creates all required files including widget.xml, block file and template.'
+                        . ' If widget.xml exists, it will add to the xml.'
+                        . ' Currently the widtget.xml file will require manual formatting after widget creation.'
+                        . ' Not widget parameters are not validated.')
         ;
     }
 
