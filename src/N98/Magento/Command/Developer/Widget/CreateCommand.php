@@ -74,6 +74,7 @@ class CreateCommand extends AbstractMagentoCommand {
     protected $designTheme;
 
     /**
+     * 
      * @var array
      */
     protected $widgetParameters;
@@ -188,7 +189,7 @@ class CreateCommand extends AbstractMagentoCommand {
     }
 
     protected function getWidgetBlockFilename() {
-        return $this->getWidgetBlockDir() . '/' . ucfirst($this->widgetId) . '.php';
+        return $this->getWidgetBlockDir() . '/' . self::uscore2CamelCase($this->widgetId) . '.php';
     }
 
     protected function getWidgetTemplateDir() {
@@ -216,7 +217,7 @@ class CreateCommand extends AbstractMagentoCommand {
         $view->assign('authorName', $input->getOption('author-name'));
         $view->assign('authorEmail', $input->getOption('author-email'));
         $view->assign('description', $input->getOption('description'));
-        $view->assign('blockClass', sprintf('%s_%s_Block_Widget_%s', $this->vendorNamespace, $this->moduleName, ucfirst($this->widgetId)));
+        $view->assign('blockClass', sprintf('%s_%s_Block_Widget_%s', $this->vendorNamespace, $this->moduleName, self::uscore2UpperUscore($this->widgetId)));
         $this->view = $view;
     }
 
@@ -228,14 +229,14 @@ class CreateCommand extends AbstractMagentoCommand {
         $widgetXml = new \Varien_Simplexml_Element(file_get_contents($outfile));
         $widgetXml->extendChild($newWidgetXml, true);
         $widgetXml->asXML($outfile);
-        $output->writeln(sprintf('<info>Updated file: <comment>%s</comment></info>'), $outfile);
+        $output->writeln(sprintf('<info>Updated file: <comment>%s</comment></info>', $outfile));
     }
 
     protected function writeWidgetXml(InputInterface $input, OutputInterface $output) {
         $this->view->setTemplate($this->baseFolder . '/widget.xml.phtml');
         $outfile = $this->getWidgetXmlFilename();
         file_put_contents($outfile, $this->view->render());
-        $output->writeln(sprintf('<info>Created file: <comment>%s</comment></info>'), $outfile);
+        $output->writeln(sprintf('<info>Created file: <comment>%s</comment></info>', $outfile));
     }
 
     protected function writeWidgetBlock(InputInterface $input, OutputInterface $output) {
@@ -253,7 +254,21 @@ class CreateCommand extends AbstractMagentoCommand {
     protected function writeTemplate(InputInterface $input, OutputInterface $output, $templateFilename, $outfile) {
         $this->view->setTemplate($templateFilename);
         file_put_contents($outfile, $this->view->render());
-        $output->writeln(sprintf('<info>Created file: <comment>%s</comment></info>'), $outfile);
+        $output->writeln(sprintf('<info>Created file: <comment>%s</comment></info>', $outfile));
     }
 
+    public static function uscore2CamelCase($value) {
+        $parts = explode('_', $value);
+        array_walk($parts, function(&$value, $key) { $value = ucfirst($value); });
+        $result = implode('', $parts);
+        return $result;
+    }
+    
+    public static function uscore2UpperUscore($value) {
+        $parts = explode('_', $value);
+        array_walk($parts, function (&$value, $key) {$value = ucfirst($value); });
+        $result = implode('_', $parts);
+        return $result;
+    }
+    
 }
