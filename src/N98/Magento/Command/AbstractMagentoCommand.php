@@ -130,17 +130,12 @@ abstract class AbstractMagentoCommand extends Command
      */
     protected function initMagento()
     {
-        if ($this->_magentoRootFolder !== null) {
-            if ($this->_magentoMajorVersion == self::MAGENTO_MAJOR_VERSION_2) {
-                require_once $this->_magentoRootFolder . '/app/bootstrap.php';
-            } else {
-                require_once $this->_magentoRootFolder . '/app/Mage.php';
-            }
-            \Mage::app('admin');
-            return true;
+        $init = $this->getApplication()->initMagento();
+        if ($init) {
+            $this->_magentoRootFolder = $this->getApplication()->getMagentoRootFolder();
         }
 
-        return false;
+        return $init;
     }
 
     /**

@@ -1,0 +1,11 @@
+# Comment
+cache:list
+
+# Another comment
+
+ # Ignore this line
+  sys:website:list
+
+  config:get web/secure/base_url
+  config:get web/seo/use_rewrites
+  config:set "web/seo/use_rewrites" 1

@@ -1,0 +1,24 @@
+language: php
+
+branches:
+  only:
+    - master
+    - develop
+
+env:
+  - DB=mysql
+
+php:
+  - 5.3
+  - 5.4
+
+before_script:
+  - curl -s http://getcomposer.org/installer | php
+  - php composer.phar install --dev --prefer-source
+  - mysql -e 'CREATE DATABASE IF NOT EXISTS `magento_travis`;'
+  - bin/n98-magerun install --magentoVersionByName=magento-ce-1.7.0.2 --installationFolder="./magento-1.7.0.2" --dbHost=localhost --dbUser=root --dbPass='' --dbName="magento_travis" --installSampleData=yes --useDefaultConfigParams=yes --baseUrl="http://travis.magento.local/"
+
+script:
+  - export N98_MAGERUN_TEST_MAGENTO_ROOT=./magento-1.7.0.2
+  - vendor/bin/phpunit
+  - php tests/check-coverage.php clover.xml 63

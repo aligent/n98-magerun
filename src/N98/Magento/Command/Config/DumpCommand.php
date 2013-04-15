@@ -2,13 +2,12 @@
 
 namespace N98\Magento\Command\Config;
 
-use N98\Magento\Command\AbstractMagentoCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class DumpCommand extends AbstractMagentoCommand
+class DumpCommand extends AbstractConfigCommand
 {
     protected function configure()
     {
@@ -32,7 +31,8 @@ class DumpCommand extends AbstractMagentoCommand
             if (!$config) {
                 throw new \InvalidArgumentException('xpath was not found');
             }
-            $dom = \DOMDocument::loadXML($config->asXml());
+            $dom = new \DOMDocument();
+            $dom->loadXML($config->asXml());
             $dom->preserveWhiteSpace = false;
             $dom->formatOutput = true;
             $output->writeln($dom->saveXML());

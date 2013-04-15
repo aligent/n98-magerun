@@ -1,21 +1,40 @@
-1.51.0
+======
+1.62.1
 ======
 
-* Added --junit-log option to dev:theme:duplicates command
+* UNIX Pipe support for script command.
+* Fix for #119 sys:check does not detect Zend Optcode Cache
 
-1.50.1
+======
+1.62.0
 ======
 
-* Changed composer.json generation: "magento-hackathon/magento-composer-installer" version by @Vinai
+* New command "script" to run multiple commands in one session (Issue #117)
+* Updated composer dependencies.
+* #57 - local-config:generate should wrap values in CDATA
+* #118 Fixes for dev console
 
-1.50.0
+======
+1.61.3
 ======
 
-* Added new experimental command "open-browser".
+* Fix issue #114 - MetaCommand getResourceHelperMap() excludes version 1.6.2.0
 
-1.49.0
+======
+1.61.2
 ======
 
-* Removed deprecated alias "system:check" -> Use sys:check
-* Added new options to dev:module:create "--add-composer", "--author-email", "--author-name"
-* Made readme generation in dev:module:create command optional by option "--add-readme"
+* "dev:ide:phpstorm:meta" command: Disabled resource helper generation for old Magento versions.
+
+======
+1.61.1
+======
+
+* Fix for "dev:ide:phpstorm:meta" command for Magento CE <= 1.5 -> File generation and --stdout parameter
+
+======
+1.61.0
+======
+
+* New command db:query to run DB queries
+* New --compression option for db:dump command. (Thanks to @mzeis for both commands)

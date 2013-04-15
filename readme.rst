@@ -4,6 +4,9 @@ netz98 magerun CLI tools
 
 The n98 magerun cli tools provides some handy tools to work with Magento from command line.
 
+.. image:: https://travis-ci.org/netz98/n98-magerun.png?branch=master
+   :target: https://travis-ci.org/netz98/n98-magerun
+
 Compatibility
 -------------
 The tools are currently only tested with PHP 5.3.10 within Ubuntu 12.04 Linux and on Mac OS X.
@@ -23,6 +26,12 @@ Download phar file
 .. code-block:: sh
 
     wget https://raw.github.com/netz98/n98-magerun/master/n98-magerun.phar
+
+or if you have problems with SSL certificate:
+
+.. code-block:: sh
+
+   curl -o n98-magerun.phar https://raw.github.com/netz98/n98-magerun/master/n98-magerun.phar
 
 You can make the .phar file executable.
 
@@ -45,6 +54,11 @@ Add this to your php.ini file:
 .. code-block:: ini
 
    suhosin.executor.include.whitelist="phar"
+
+
+**You don't like the filename?**
+
+Just rename it to whatever you want.
 
 Install with Composer
 """""""""""""""""""""
@@ -172,14 +186,20 @@ Dump database
 
 Dumps configured magento database with `mysqldump`.
 
+* Requires MySQL CLI tools
+
 Arguments:
     filename        Dump filename
 
 Options:
-    --add-time      Adds time to filename
-    --only-command  Print only mysqldump command. Do not execute
-    --stdout        Dump to stdout
-    --strip         Tables to strip (dump only structure of those tables)
+     --add-time               Adds time to filename (only if filename was not provided)
+     --compression (-c)       Compress the dump file using one of the supported algorithms
+     --only-command           Print only mysqldump command. Do not execute
+     --print-only-filename    Execute and prints not output except the dump filename
+     --no-single-transaction  Do not use single-transaction (not recommended, this is blocking)
+     --stdout                 Dump to stdout
+     --strip                  Tables to strip (dump only structure of those tables)
+     --force (-f)             Do not prompt if all options are defined
 
 .. code-block:: sh
 
@@ -196,7 +216,13 @@ Or directly to stdout:
 .. code-block:: sh
 
    $ n98-magerun.phar db:dump --stdout
+   
+Use compression (gzip cli tool has to be installed):   
 
+.. code-block:: sh
+
+   $ n98-magerun.phar db:dump --compression="gzip" 
+   
 Stripped Database Dump
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -232,9 +258,26 @@ Imports an SQL file with mysql cli client into current configured database.
 
 * Requires MySQL CLI tools
 
+Arguments:
+    filename        Dump filename
+
+Options:
+     --compression (-c)       The compression of the specified file
+     --only-command           Print only mysql command. Do not execute
+
+.. code-block:: sh
+
+   $ n98-magerun.phar db:dump
+
 .. code-block:: sh
 
    $ n98-magerun.phar db:import [--only-command] [filename]
+   
+Use decompression (gzip cli tool has to be installed):   
+
+.. code-block:: sh
+
+   $ n98-magerun.phar db:import --compression="gzip" [filename]    
 
 Database Console / MySQL Client
 """""""""""""""""""""""""""""""
@@ -250,13 +293,34 @@ Opens the MySQL console client with your database settings from local.xml
 Database Drop
 """""""""""""
 
-Opens the MySQL console client with your database settings from local.xml
+Drops the database configured in local.xml.
 
 * Requires MySQL CLI tools
 
 .. code-block:: sh
 
    $ n98-magerun.phar db:drop  [-f|--force]
+   
+Database Query
+""""""""""""""
+
+Executes an SQL query on the current configured database. Wrap your SQL in
+single or double quotes.
+
+If your query produces a result (e.g. a SELECT statement), the output of the
+mysql cli tool will be returned.
+
+* Requires MySQL CLI tools
+
+Arguments:
+    query        SQL query
+
+Options:
+     --only-command           Print only mysql command. Do not execute
+
+.. code-block:: sh
+
+   $ n98-magerun.phar db:query [--only-command] [query]
 
 List Indexes
 """"""""""""
@@ -328,7 +392,7 @@ Set Config
 
 .. code-block:: sh
 
-   $ n98-magerun.phar config:set [--scope[="..."]] [--scope-id[="..."]] path value
+   $ n98-magerun.phar config:set [--scope[="..."]] [--scope-id[="..."]] [--encrypt] path value
 
 Arguments:
     path        The config path
@@ -337,19 +401,21 @@ Arguments:
 Options:
     --scope     The config value's scope (default: "default")
     --scope-id  The config value's scope ID (default: "0")
+    --decrypt   Decrypt the config value using local.xml's crypt key
 
 Get Config
 """"""""""
 
 .. code-block:: sh
 
-   $ n98-magerun.phar config:get [--scope-id="..."] [path]
+   $ n98-magerun.phar config:get [--scope-id="..."] [--decrypt] [path]
 
 Arguments:
     path        The config path
 
 Options:
     --scope-id  The config value's scope ID
+    --decrypt   Decrypt the config value using local.xml's crypt key
 
 Help:
     If path is not set, all available config items will be listed. path may contain wildcards (*)
@@ -492,14 +558,35 @@ Lists all websites.
 
    $ n98-magerun.phar sys:website:list
 
-Magento Cronjobs
-""""""""""""""""
+List Cronjobs
+"""""""""""""
 
 Lists all cronjobs defined in config.xml files.
 
 .. code-block:: sh
 
    $ n98-magerun.phar sys:cron:list
+
+Run Cronjob
+"""""""""""
+
+Runs a cronjob by code.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar sys:cron:run [job]
+
+If no `job` argument is passed you can select a job from a list.
+See it in action: http://www.youtube.com/watch?v=QkzkLgrfNaM
+
+Cronjob History
+"""""""""""""""
+
+Last executed cronjobs with status.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar sys:cron:history
 
 List URLs
 """""""""
@@ -576,9 +663,22 @@ Publishes a page by page id and revision.
 
 Useful to automatically publish a page by a cron job.
 
+Ineractive Development Console
+""""""""""""""""""""""""""""""
 
-Toggle Template Hints
-"""""""""""""""""""""
+Opens PHP interactive shell with initialized Magento Admin-Store.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:console
+
+See it in action: http://www.youtube.com/watch?v=zAWpRpawTGc
+
+The command is only available for PHP 5.4 users.
+
+
+Template Hints
+""""""""""""""
 
 Toggle debug template hints settings of a store
 
@@ -586,8 +686,8 @@ Toggle debug template hints settings of a store
 
    $ n98-magerun.phar dev:template-hints [store_code]
 
-Toggle Template Hints Blocks
-""""""""""""""""""""""""""""
+Template Hints Blocks
+"""""""""""""""""""""
 
 Toggle debug template hints blocks settings of a store
 
@@ -595,8 +695,8 @@ Toggle debug template hints blocks settings of a store
 
    $ n98-magerun.phar dev:template-hints-blocks [store_code]
 
-Toggle Inline Translation
-"""""""""""""""""""""""""
+Inline Translation
+""""""""""""""""""
 
 Toggle settings for shop frontend:
 
@@ -610,23 +710,54 @@ Toggle for admin area:
 
    $ n98-magerun.phar dev:translate:admin
 
-Toggle Profiler
-"""""""""""""""
+Profiler
+""""""""
 
 Toggle profiler for debugging a store:
 
 .. code-block:: sh
 
-   $ n98-magerun.phar dev:profiler [store_code]
+   $ n98-magerun.phar dev:profiler [--on] [--off] [--global] [store]
 
-Toggle Development Logs
-"""""""""""""""""""""""
+Development Logs
+""""""""""""""""
 
 Activate/Deactivate system.log and exception.log for a store:
 
 .. code-block:: sh
 
-   $ n98-magerun.phar dev:log [store_code]
+   $ n98-magerun.phar dev:log [--on] [--off] [--global] [store]
+
+Show size of a log file:
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:log:size [log_filename]
+
+Activate/Deactivate MySQL query logging via lib/Varien/Db/Adapter/Pdo/Mysql.php
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:log:db [--on] [--off]
+
+Development IDE Support
+"""""""""""""""""""""""
+
+**PhpStorm Code Completion** -> Meta file generation.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:ide:phpstorm:meta [--stdout]
+
+
+Reports
+"""""""
+
+Prints count of reports in var/reports folder.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:report:count
 
 Toggle Symlinks
 """""""""""""""
@@ -635,7 +766,7 @@ Allow usage of symlinks for a store-view:
 
 .. code-block:: sh
 
-   $ n98-magerun.phar dev:symlinks <store_code>
+   $ n98-magerun.phar dev:symlinks [--on] [--off] [--global] [store_code]
 
 Global scope can be set by not permitting store_code parameter:
 
@@ -650,7 +781,7 @@ Creates an empty module and registers it in current magento shop:
 
 .. code-block:: sh
 
-   $ n98-magerun.phar dev:module:create [--add-blocks] [--add-helpers] [--add-models] [--add-all] [--modman] [--add-readme] [--add-composer] [--author-name[="..."]] [--author-email[="..."]] [--description[="..."]] vendorNamespace moduleName [codePool]
+   $ n98-magerun.phar dev:module:create [--add-blocks] [--add-helpers] [--add-models] [--add-setup] [--add-all] [--modman] [--add-readme] [--add-composer] [--author-name[="..."]] [--author-email[="..."]] [--description[="..."]] vendorNamespace moduleName [codePool]
 
 Code-Pool defaults to `local`.
 
@@ -824,6 +955,8 @@ Example of an unattended Magento CE 1.7.0.2 installation:
 
    $ n98-magerun.phar install --dbHost="localhost" --dbUser="mydbuser" --dbPass="mysecret" --dbName="magentodb" --installSampleData=yes --useDefaultConfigParams=yes --magentoVersionByName="magento-ce-1.7.0.2" --installationFolder="magento" --baseUrl="http://magento.localdomain/"
 
+See it in action: http://youtu.be/WU-CbJ86eQc
+
 
 Magento Uninstaller
 """""""""""""""""""
@@ -835,6 +968,45 @@ Uninstalls Magento: Drops your database and recursive deletes installation folde
    $ n98-magerun.phar uninstall [-f|--force]
 
 **Please be careful: This removes all data from your installation.**
+
+n98-magerun Shell
+"""""""""""""""""
+
+If you need autocompletion for all n98-magerun commands you can start with "shell command".
+
+.. code-block:: sh
+
+   $ n98-magerun.phar shell
+
+n98-magerun Script
+""""""""""""""""""
+
+Run multiple commands from a script file.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar script filename
+
+Example:
+
+.. code-block::
+
+   # This is a comment
+   cache:flush
+
+   # Set multiple config
+   config:set "web/cookie/cookie_domain" example.com
+
+
+Optionally you can work with unix pipes.
+
+.. code-block:: sh
+
+   $ echo "cache:flush" | n98-magerun-dev script
+
+.. code-block:: sh
+
+   $ n98-magerun-dev script < filename
 
 
 Autocompletion
