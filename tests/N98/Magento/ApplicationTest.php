@@ -16,6 +16,8 @@ class ApplicationTest extends TestCase
          * Check autoloading
          */
         $application = require __DIR__ . '/../../../src/bootstrap.php';
+        $application->setMagentoRootFolder(getenv('N98_MAGERUN_TEST_MAGENTO_ROOT'));
+
         /* @var $application Application */
         $this->assertInstanceOf('\N98\Magento\Application', $application);
         $loader = $application->getAutoloader();
@@ -35,7 +37,7 @@ class ApplicationTest extends TestCase
                 ),
                 'aliases' => array(
                     array(
-                        'cf' => 'cache:flush'
+                        'cl' => 'cache:list'
                     )
                 ),
             ),
@@ -51,7 +53,19 @@ class ApplicationTest extends TestCase
         $testDummyCommand = $application->find('n98mageruntest:test:dummy');
         $this->assertInstanceOf('\N98MagerunTest\TestDummyCommand', $testDummyCommand);
 
+
+        $commandTester = new CommandTester($testDummyCommand);
+        $commandTester->execute(
+            array(
+                'command'    => $testDummyCommand->getName(),
+            )
+        );
+        $this->assertContains('dummy', $commandTester->getDisplay());
+
+
+        $this->assertTrue($application->getDefinition()->hasOption('root-dir'));
+
         // check alias
-        $this->assertInstanceOf('\N98\Magento\Command\Cache\FlushCommand', $application->find('cf'));
+        $this->assertInstanceOf('\N98\Magento\Command\Cache\ListCommand', $application->find('cl'));
     }
 }

@@ -4,15 +4,26 @@ netz98 magerun CLI tools
 
 The n98 magerun cli tools provides some handy tools to work with Magento from command line.
 
+
+Build Status
+------------
+
+**Latest Release**
+
 .. image:: https://travis-ci.org/netz98/n98-magerun.png?branch=master
    :target: https://travis-ci.org/netz98/n98-magerun
 
+**Development Branch**
+
+.. image:: https://travis-ci.org/netz98/n98-magerun.png?branch=develop
+  :target: https://travis-ci.org/netz98/n98-magerun
+
 Compatibility
 -------------
-The tools are currently only tested with PHP 5.3.10 within Ubuntu 12.04 Linux and on Mac OS X.
-If you are a Windows user you can help us with a quick test.
+The tools will automatically be tested for multiple PHP versions (5.3, 5.4, 5.5). It's currently currently running in various Linux distributions and Mac OS X.
+Microsoft Windows is not fully supported (some Commands like `db:dump` or `install` are excluded).
 
-The tools should work with Magento 2 development branch.
+The tool partially works with Magento 2 development branch.
 
 
 Installation
@@ -188,18 +199,39 @@ Dumps configured magento database with `mysqldump`.
 
 * Requires MySQL CLI tools
 
-Arguments:
+**Arguments**
+
     filename        Dump filename
 
-Options:
-     --add-time               Adds time to filename (only if filename was not provided)
-     --compression (-c)       Compress the dump file using one of the supported algorithms
-     --only-command           Print only mysqldump command. Do not execute
-     --print-only-filename    Execute and prints not output except the dump filename
-     --no-single-transaction  Do not use single-transaction (not recommended, this is blocking)
-     --stdout                 Dump to stdout
-     --strip                  Tables to strip (dump only structure of those tables)
-     --force (-f)             Do not prompt if all options are defined
+**Options**
+
+  --add-time         
+        Adds time to filename (only if filename was not provided)
+
+  --compression (-c)
+        Compress the dump file using one of the supported algorithms
+
+  --only-command
+        Print only mysqldump command. Do not execute
+
+  --print-only-filename
+        Execute and prints not output except the dump filename
+
+  --no-single-transaction
+        Do not use single-transaction (not recommended, this is blocking)
+
+  --human-readable
+        Use a single insert with column names per row.
+
+  --stdout
+        Dump to stdout
+
+  --strip       
+        Tables to strip (dump only structure of those tables)
+
+  --force (-f)
+        Do not prompt if all options are defined
+
 
 .. code-block:: sh
 
@@ -216,13 +248,13 @@ Or directly to stdout:
 .. code-block:: sh
 
    $ n98-magerun.phar db:dump --stdout
-   
-Use compression (gzip cli tool has to be installed):   
+
+Use compression (gzip cli tool has to be installed):
 
 .. code-block:: sh
 
-   $ n98-magerun.phar db:dump --compression="gzip" 
-   
+   $ n98-magerun.phar db:dump --compression="gzip"
+
 Stripped Database Dump
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -272,12 +304,12 @@ Options:
 .. code-block:: sh
 
    $ n98-magerun.phar db:import [--only-command] [filename]
-   
-Use decompression (gzip cli tool has to be installed):   
+
+Use decompression (gzip cli tool has to be installed):
 
 .. code-block:: sh
 
-   $ n98-magerun.phar db:import --compression="gzip" [filename]    
+   $ n98-magerun.phar db:import --compression="gzip" [filename]
 
 Database Console / MySQL Client
 """""""""""""""""""""""""""""""
@@ -300,7 +332,7 @@ Drops the database configured in local.xml.
 .. code-block:: sh
 
    $ n98-magerun.phar db:drop  [-f|--force]
-   
+
 Database Query
 """"""""""""""
 
@@ -419,6 +451,16 @@ Options:
 
 Help:
     If path is not set, all available config items will be listed. path may contain wildcards (*)
+
+Config Search
+"""""""""""""
+
+Search system configuration descriptions.
+
+ .. code-block:: sh
+
+   $ n98-magerun.phar text
+
 
 List Magento cache status
 """""""""""""""""""""""""
@@ -663,8 +705,8 @@ Publishes a page by page id and revision.
 
 Useful to automatically publish a page by a cron job.
 
-Ineractive Development Console
-""""""""""""""""""""""""""""""
+Interactive Development Console
+"""""""""""""""""""""""""""""""
 
 Opens PHP interactive shell with initialized Magento Admin-Store.
 
@@ -740,6 +782,23 @@ Activate/Deactivate MySQL query logging via lib/Varien/Db/Adapter/Pdo/Mysql.php
 
    $ n98-magerun.phar dev:log:db [--on] [--off]
 
+Setup Script Generation
+"""""""""""""""""""""""
+
+Generate Script for attributes:
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:setup:script:attribute entityType attributeCode
+
+i.e.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:setup:script:attribute catalog_product color
+
+Currently only *catalog_product* entity type is supported.
+
 Development IDE Support
 """""""""""""""""""""""
 
@@ -758,6 +817,21 @@ Prints count of reports in var/reports folder.
 .. code-block:: sh
 
    $ n98-magerun.phar dev:report:count
+
+Resolve/Lookup Class Names
+""""""""""""""""""""""""""
+
+Resolves the given type and grouped class name to a class name, useful for debugging rewrites.
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:class:lookup <block|model|helper> <name>
+   
+Example:   
+
+.. code-block:: sh
+
+   $ n98-magerun.phar dev:resolve model catalog/product
 
 Toggle Symlinks
 """""""""""""""
@@ -991,11 +1065,11 @@ Example:
 
 .. code-block::
 
-   # This is a comment
-   cache:flush
-
    # Set multiple config
    config:set "web/cookie/cookie_domain" example.com
+
+   # This is a comment
+   cache:flush
 
 
 Optionally you can work with unix pipes.
@@ -1008,6 +1082,38 @@ Optionally you can work with unix pipes.
 
    $ n98-magerun-dev script < filename
 
+It is even possible to create executable scripts:
+
+Create file `test.magerun` and make it executable (`chmod +x test.magerun`):
+
+.. code-block:: sh
+
+   #!/usr/bin/env n98-magerun.phar script
+
+   config:set "web/cookie/cookie_domain" example.com
+   cache:flush
+
+   # Run a shell script with "!" as first char
+   ! ls -l
+
+   # Register your own variable (only key = value currently supported)
+   ${my.var}=bar
+
+   # Let magerun ask for variable value - add a question mark
+   ${my.var}=?
+
+   ! echo ${my.var}
+
+   # Use resolved variables from n98-magerun in shell commands
+   ! ls -l ${magento.root}/code/local
+
+Pre-defined variables:
+
+* ${magento.root}    -> Magento Root-Folder
+* ${magento.version} -> Magento Version i.e. 1.7.0.2
+* ${magento.edition} -> Magento Edition -> Community or Enterprise
+* ${magerun.version} -> Magerun version i.e. 1.66.0
+* ${php.version}     -> PHP Version
 
 Autocompletion
 --------------

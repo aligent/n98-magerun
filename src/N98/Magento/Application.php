@@ -16,6 +16,7 @@ use N98\Magento\Command\Cms\Page\PublishCommand as MagentoCmsPagePublishCommand;
 use N98\Magento\Command\Config\DumpCommand as ConfigPrintCommand;
 use N98\Magento\Command\Config\GetCommand as ConfigGetCommand;
 use N98\Magento\Command\Config\SetCommand as ConfigSetCommand;
+use N98\Magento\Command\Config\SearchCommand as ConfigSearchCommand;
 use N98\Magento\Command\ConfigurationLoader;
 use N98\Magento\Command\Customer\ChangePasswordCommand as CustomerChangePasswordCommand;
 use N98\Magento\Command\Customer\CreateCommand as CustomerCreateCommand;
@@ -30,6 +31,7 @@ use N98\Magento\Command\Database\InfoCommand as DatabaseInfoCommand;
 use N98\Magento\Command\Database\QueryCommand as DatabaseQueryCommand;
 use N98\Magento\Command\Design\DemoNoticeCommand as DesignDemoNoticeCommand;
 use N98\Magento\Command\Developer\Ide\PhpStorm\MetaCommand as DevelopmentIdePhpStormMetaCommand;
+use N98\Magento\Command\Developer\Setup\Script\AttributeCommand as DevelopmentSetupScriptAttributeCommand;
 use N98\Magento\Command\Developer\ConsoleCommand as DevelopmentConsoleCommand;
 use N98\Magento\Command\Developer\Log\DbCommand as DevelopmentLogDbCommand;
 use N98\Magento\Command\Developer\Log\LogCommand as DevelopmentLogCommand;
@@ -41,6 +43,7 @@ use N98\Magento\Command\Developer\Module\Rewrite\ConflictsCommand as ModuleRewri
 use N98\Magento\Command\Developer\Module\Rewrite\ListCommand as ModuleRewriteListCommand;
 use N98\Magento\Command\Developer\ProfilerCommand;
 use N98\Magento\Command\Developer\Report\CountCommand as DevelopmentReportCountCommand;
+use N98\Magento\Command\Developer\ClassLookupCommand as DevelopmentClassLookupCommand;
 use N98\Magento\Command\Developer\SymlinksCommand;
 use N98\Magento\Command\Developer\TemplateHintsBlocksCommand;
 use N98\Magento\Command\Developer\TemplateHintsCommand;
@@ -77,12 +80,14 @@ use N98\Magento\Command\System\Website\ListCommand as SystemWebsiteListCommand;
 use N98\Magento\EntryPoint\Magerun as MagerunEntryPoint;
 use N98\Util\Console\Helper\ParameterHelper;
 use N98\Util\Console\Helper\TableHelper;
+use N98\Util\Console\Helper\TwigHelper;
 use N98\Util\OperatingSystem;
 use N98\Util\String;
 use Symfony\Component\Console\Application as BaseApplication;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\Finder;
@@ -104,7 +109,8 @@ class Application extends BaseApplication
     /**
      * @var string
      */
-    const APP_VERSION = '1.62.1';
+    const APP_VERSION = '1.70.3';
+
     /**
      * @var string
      */
@@ -119,22 +125,31 @@ class Application extends BaseApplication
      * @var \Composer\Autoload\ClassLoader
      */
     protected $autoloader;
+
     /**
      * @var array
      */
     protected $config = array();
+
     /**
      * @var string
      */
     protected $_magentoRootFolder = null;
+
     /**
      * @var bool
      */
     protected $_magentoEnterprise = false;
+
     /**
      * @var int
      */
     protected $_magentoMajorVersion = self::MAGENTO_MAJOR_VERSION_1;
+
+    /**
+     * @var EntryPoint
+     */
+    protected $_magento2EntryPoint = null;
 
     /**
      * @var bool
@@ -157,60 +172,40 @@ class Application extends BaseApplication
     }
 
     /**
+     * @return \Symfony\Component\Console\Input\InputDefinition|void
+     */
+    protected function getDefaultInputDefinition()
+    {
+        $inputDefinition = parent::getDefaultInputDefinition();
+        $rootDirOption = new InputOption(
+            '--root-dir',
+            '',
+            InputOption::VALUE_OPTIONAL,
+            'Force magento root dir. No auto detection'
+        );
+        $inputDefinition->addOption($rootDirOption);
+
+        return $inputDefinition;
+    }
+
+
+    /**
      * Search for magento root folder
-     *
-     * @param OutputInterface $output
-     * @param bool $silent print debug messages
      */
     public function detectMagento()
     {
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            $folder = exec('@echo %cd%'); // @TODO not currently tested!!!
+        if ($this->getMagentoRootFolder() === null) {
+            $this->_checkRootDirOption();
+            if (OperatingSystem::isWindows()) {
+                $folder = exec('@echo %cd%'); // @TODO not currently tested!!!
+            } else {
+                $folder = exec('pwd');
+            }
         } else {
-            $folder = exec('pwd');
+            $folder = $this->getMagentoRootFolder();
         }
 
-        $folders = array();
-        $folderParts = explode(DIRECTORY_SEPARATOR, $folder);
-        foreach ($folderParts as $key => $part) {
-            $explodedFolder = implode(DIRECTORY_SEPARATOR, array_slice($folderParts, 0, $key + 1));
-            if ($explodedFolder !== '') {
-                $folders[] = $explodedFolder;
-            }
-        }
-
-        foreach (array_reverse($folders) as $searchFolder) {
-            $finder = new Finder();
-            $finder
-                ->directories()
-                ->depth(0)
-                ->followLinks()
-                ->name('app')
-                ->name('skin')
-                ->name('lib')
-                ->in($searchFolder);
-
-            if ($finder->count() >= 2) {
-                $files = iterator_to_array($finder, false);
-                /* @var $file \SplFileInfo */
-
-                if (count($files) == 2) {
-                    // Magento 2 has no skin folder.
-                    // @TODO find a better magento 2.x check
-                    $this->_magentoMajorVersion = self::MAGENTO_MAJOR_VERSION_2;
-                }
-
-                $this->_magentoRootFolder = dirname($files[0]->getRealPath());
-
-                if (is_callable(array('\Mage', 'getEdition'))) {
-                    $this->_magentoEnterprise = (\Mage::getEdition() == 'Enterprise');
-                } else {
-                    $this->_magentoEnterprise = is_dir($this->_magentoRootFolder . '/app/code/core/Enterprise');
-                }
-
-                return;
-            }
-        }
+        $this->_detectMagentoVersion($folder);
     }
 
     /**
@@ -221,6 +216,15 @@ class Application extends BaseApplication
         $helperSet = $this->getHelperSet();
         $helperSet->set(new TableHelper(), 'table');
         $helperSet->set(new ParameterHelper(), 'parameter');
+
+        // Twig
+        $twigBaseDirs = array(
+            __DIR__ . '/../../../res/twig'
+        );
+        if (isset($this->config['twig']['baseDirs']) && is_array($this->config['twig']['baseDirs'])) {
+            $twigBaseDirs = array_merge(array_reverse($this->config['twig']['baseDirs']), $twigBaseDirs);
+        }
+        $helperSet->set(new TwigHelper($twigBaseDirs), 'twig');
     }
 
     /**
@@ -307,28 +311,47 @@ class Application extends BaseApplication
         return $this->_isPharMode;
     }
 
+    /**
+     * @param OutputInterface $output
+     * @return bool
+     */
+    public function checkVarDir(OutputInterface $output)
+    {
+        $tempVarDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'magento' . DIRECTORY_SEPARATOR .  'var';
+
+        if (is_dir($tempVarDir)) {
+            if ($this->initMagento()) {
+                $configOptions = new \Mage_Core_Model_Config_Options();
+                $currentVarDir = $configOptions->getVarDir();
+
+                if ($currentVarDir == $tempVarDir) {
+                    $output->writeln(sprintf('<error>Fallback folder %s is used in n98-magerun</error>', $tempVarDir));
+                    $output->writeln('');
+                    $output->writeln('n98-magerun is using the fallback folder. If there is another folder configured for Magento, this can cause serious problems.');
+                    $output->writeln('Please refer to https://github.com/netz98/n98-magerun/wiki/File-system-permissions for more information.');
+                    $output->writeln('');
+                } else {
+                    $output->writeln(sprintf('<error>Folder %s found, but not used in n98-magerun</error>', $tempVarDir));
+                    $output->writeln('');
+                    $output->writeln(sprintf('This might cause serious problems. n98-magerun is using the configured var-folder <comment>%s</comment>', $currentVarDir));
+                    $output->writeln('Please refer to https://github.com/netz98/n98-magerun/wiki/File-system-permissions for more information.');
+                    $output->writeln('');
+
+                    return false;
+                }
+            }
+        }
+    }
+
     public function initMagento()
     {
         if ($this->getMagentoRootFolder() !== null) {
             if ($this->_magentoMajorVersion == self::MAGENTO_MAJOR_VERSION_2) {
-                require_once $this->getMagentoRootFolder() . '/app/bootstrap.php';
-                if (version_compare(\Mage::getVersion(), '2.0.0.0-dev42') >= 0) {
-                    $params = array(
-                        \Mage::PARAM_RUN_CODE => 'admin',
-                        \Mage::PARAM_RUN_TYPE => 'store',
-                        'entryPoint' => basename(__FILE__),
-                    );
-                    new MagerunEntryPoint(BP, $params);
-                } else
-                    if (version_compare(\Mage::getVersion(), '2.0.0.0-dev41') >= 0) {
-                        \Mage::app(array('MAGE_RUN_CODE' => 'admin'));
-                    } else {
-                        \Mage::app('admin');
-                    }
+                $this->_initMagento2();
             } else {
-                require_once $this->getMagentoRootFolder() . '/app/Mage.php';
-                \Mage::app('admin');
+                $this->_initMagento1();
             }
+
             return true;
         }
 
@@ -362,6 +385,14 @@ class Application extends BaseApplication
     public function getMagentoRootFolder()
     {
         return $this->_magentoRootFolder;
+    }
+
+    /**
+     * @param string $magentoRootFolder
+     */
+    public function setMagentoRootFolder($magentoRootFolder)
+    {
+        $this->_magentoRootFolder = $magentoRootFolder;
     }
 
     /**
@@ -415,6 +446,11 @@ class Application extends BaseApplication
     public function doRun(InputInterface $input, OutputInterface $output)
     {
         $input = $this->checkConfigCommandAlias($input);
+        $this->checkVarDir($output);
+
+        if (OutputInterface::VERBOSITY_DEBUG <= $output->getVerbosity()) {
+            $output->writeln('DEBUG');
+        }
 
         parent::doRun($input, $output);
     }
@@ -489,7 +525,12 @@ class Application extends BaseApplication
      */
     public function run(InputInterface $input = null, OutputInterface $output = null)
     {
-        $this->init();
+        try {
+            $this->init();
+        } catch (\Exception $e) {
+            $output = new ConsoleOutput();
+            $this->renderException($e, $output);
+        }
 
         $return = parent::run($input, $output);
 
@@ -513,6 +554,7 @@ class Application extends BaseApplication
         $this->add(new ConfigPrintCommand());
         $this->add(new ConfigGetCommand());
         $this->add(new ConfigSetCommand());
+        $this->add(new ConfigSearchCommand());
         $this->add(new CacheCleanCommand());
         $this->add(new CacheFlushCommand());
         $this->add(new CacheListCommand());
@@ -557,7 +599,9 @@ class Application extends BaseApplication
         $this->add(new DevelopmentLogDbCommand());
         $this->add(new DevelopmentLogSizeCommand());
         $this->add(new DevelopmentReportCountCommand());
+        $this->add(new DevelopmentClassLookupCommand());
         $this->add(new DevelopmentIdePhpStormMetaCommand());
+        $this->add(new DevelopmentSetupScriptAttributeCommand());
         $this->add(new ModuleListCommand());
         $this->add(new ModuleRewriteListCommand());
         $this->add(new ModuleRewriteConflictsCommand());
@@ -565,22 +609,15 @@ class Application extends BaseApplication
         $this->add(new ModuleObserverListCommand());
         $this->add(new ShellCommand());
         $this->add(new ScriptCommand());
-
-        if (!OperatingSystem::isWindows()) {
-            $this->add(new MagentoConnectionListExtensionsCommand());
-            $this->add(new MagentoConnectionInstallExtensionCommand());
-            $this->add(new MagentoConnectionDownloadExtensionCommand());
-            $this->add(new MagentoConnectionUpgradeExtensionCommand());
-            $this->add(new OpenBrowserCommand());
-        }
-
+        $this->add(new MagentoConnectionListExtensionsCommand());
+        $this->add(new MagentoConnectionInstallExtensionCommand());
+        $this->add(new MagentoConnectionDownloadExtensionCommand());
+        $this->add(new MagentoConnectionUpgradeExtensionCommand());
+        $this->add(new OpenBrowserCommand());
         $this->add(new MagentoCmsPagePublishCommand());
         $this->add(new MagentoCmsBannerToggleCommand());
         $this->add(new DevelopmentConsoleCommand());
-
-        if ($this->isPharMode()) {
-            $this->add(new SelfUpdateCommand());
-        }
+        $this->add(new SelfUpdateCommand());
     }
 
     /**
@@ -601,7 +638,9 @@ class Application extends BaseApplication
             date_default_timezone_set(@date_default_timezone_get());
 
             $this->detectMagento();
-            $this->config = $this->_loadConfig($this->config);
+            if (count($this->config) == 0) { // made for unit tests to inject a complete config
+                $this->config = $this->_loadConfig($this->config);
+            }
             $this->registerHelpers();
             if ($this->autoloader) {
                 $this->registerCustomAutoloaders();
@@ -611,6 +650,103 @@ class Application extends BaseApplication
 
             $this->_isInitialized = true;
         }
+    }
+
+    /**
+     * @return string
+     */
+    protected function _checkRootDirOption()
+    {
+        $specialGlobalOptions = getopt('', array('root-dir:'));
+
+        if (count($specialGlobalOptions) > 0) {
+            $folder = realpath($specialGlobalOptions['root-dir']);
+            if (is_dir($folder)) {
+                \chdir($folder);
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * @param $folder
+     */
+    protected function _detectMagentoVersion($folder)
+    {
+        $folders = array();
+        $folderParts = explode(DIRECTORY_SEPARATOR, $folder);
+        foreach ($folderParts as $key => $part) {
+            $explodedFolder = implode(DIRECTORY_SEPARATOR, array_slice($folderParts, 0, $key + 1));
+            if ($explodedFolder !== '') {
+                $folders[] = $explodedFolder;
+            }
+        }
+
+        foreach (array_reverse($folders) as $searchFolder) {
+            $finder = new Finder();
+            $finder
+                ->directories()
+                ->depth(0)
+                ->followLinks()
+                ->name('app')
+                ->name('skin')
+                ->name('lib')
+                ->in($searchFolder);
+
+            if ($finder->count() >= 2) {
+                $files = iterator_to_array($finder, false);
+                /* @var $file \SplFileInfo */
+
+                if (count($files) == 2) {
+                    // Magento 2 has no skin folder.
+                    // @TODO find a better magento 2.x check
+                    $this->_magentoMajorVersion = self::MAGENTO_MAJOR_VERSION_2;
+                }
+
+                $this->_magentoRootFolder = dirname($files[0]->getRealPath());
+
+                if (is_callable(array('\Mage', 'getEdition'))) {
+                    $this->_magentoEnterprise = (\Mage::getEdition() == 'Enterprise');
+                } else {
+                    $this->_magentoEnterprise = is_dir($this->_magentoRootFolder . '/app/code/core/Enterprise');
+                }
+
+                return;
+            }
+        }
+    }
+
+    protected function _initMagento2()
+    {
+        if ($this->_magento2EntryPoint === null) {
+            require_once $this->getMagentoRootFolder() . '/app/bootstrap.php';
+
+            if (version_compare(\Mage::getVersion(), '2.0.0.0-dev42') >= 0) {
+                $params = array(
+                    \Mage::PARAM_RUN_CODE => 'admin',
+                    \Mage::PARAM_RUN_TYPE => 'store',
+                    'entryPoint'          => basename(__FILE__),
+                );
+                try {
+                    $this->_magento2EntryPoint = new MagerunEntryPoint(BP, $params);
+                } catch (\Exception $e) {
+                    // @TODO problem with objectmanager during tests. Find a better soluttion to reset object manager
+                }
+            } else {
+                if (version_compare(\Mage::getVersion(), '2.0.0.0-dev41') >= 0) {
+                    \Mage::app(array('MAGE_RUN_CODE' => 'admin'));
+                } else {
+                    \Mage::app('admin');
+                }
+            }
+        }
+    }
+
+    protected function _initMagento1()
+    {
+        require_once $this->getMagentoRootFolder() . '/app/Mage.php';
+        \Mage::app('admin');
     }
 
 }

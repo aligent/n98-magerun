@@ -1,3 +1,6 @@
+twig:
+  baseDirs:
+
 commands:
   customCommands: []
   aliases: []
@@ -31,17 +34,19 @@ commands:
 
       - name: magento-mirror-1.4.2.0
         version: 1.4.2.0
-        dist:
-          url: https://github.com/LokeyCoding/magento-mirror/archive/1.4.2.0.zip
-          type: zip
+        source:
+          url: git://github.com/LokeyCoding/magento-mirror.git
+          type: git
+          reference: magento-1.4
         extra:
           sample-data: sample-data-1.1.2
 
       - name: magento-mirror-1.5.1.0
         version: 1.5.1.0
-        dist:
-          url: https://github.com/LokeyCoding/magento-mirror/archive/1.5.1.0.zip
-          type: zip
+        source:
+          url: git://github.com/LokeyCoding/magento-mirror.git
+          type: git
+          reference: magento-1.5
         extra:
           sample-data: sample-data-1.1.2
 
@@ -103,10 +108,10 @@ commands:
 
       - id: sales
         description: Sales data (orders, invoices, creditmemos etc)
-        tables: sales_order_aggregated* sales_order_tax* sales_flat_order* sales_flat_creditmemo_* sales_flat_invoice_* sales_flat_quote sales_recurring_* sales_refunded_* sales_payment_*
+        tables: sales_order_aggregated* sales_order_tax* sales_flat* sales_recurring_* sales_refunded_* sales_payment_* enterprise_sales_* enterprise_customer_sales_*
 
       - id: customers
-        description: Customer data
+        description: Customer data - Should not be used without @sales
         tables: customer_address* customer_entity*
 
       - id: trade

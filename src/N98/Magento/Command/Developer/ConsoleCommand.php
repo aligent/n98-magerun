@@ -3,6 +3,7 @@
 namespace N98\Magento\Command\Developer;
 
 use N98\Magento\Command\AbstractMagentoCommand;
+use N98\Util\OperatingSystem;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -14,6 +15,24 @@ class ConsoleCommand extends AbstractMagentoCommand
             ->setName('dev:console')
             ->setDescription('Opens PHP interactive shell with initialized Mage::app() <comment>(Experimental)</comment>')
         ;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isEnabled()
+    {
+        if (OperatingSystem::isWindows()) {
+
+            return false;
+        }
+
+        if ($this->getApplication()->isPharMode()) {
+            $pharFile = $_SERVER['argv'][0];
+            return substr($pharFile, -5) == '.phar';
+        }
+
+        return true;
     }
 
     /**
@@ -30,6 +49,10 @@ class ConsoleCommand extends AbstractMagentoCommand
         );
 
         $prependFile = __DIR__ . '/../../../../../res/dev/console_auto_prepend.php';
+        if ($this->getApplication()->isPharMode()) {
+            $pharFile = $_SERVER['argv'][0];
+            $prependFile = 'phar://' . $pharFile . '/res/dev/console_auto_prepend.php';
+        }
 
         $exec = '/usr/bin/env php -d auto_prepend_file=' . escapeshellarg($prependFile) . ' -a';
 

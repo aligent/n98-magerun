@@ -2,6 +2,7 @@
 
 namespace N98\Magento\Command\Database;
 
+use N98\Util\OperatingSystem;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -18,15 +19,24 @@ class DumpCommand extends AbstractDatabaseCommand
         $this
             ->setName('db:dump')
             ->addArgument('filename', InputArgument::OPTIONAL, 'Dump filename')
-            ->addOption('add-time', null, InputOption::VALUE_NONE, 'Adds time to filename (only if filename was not provided)')
+            ->addOption('add-time', 't', InputOption::VALUE_OPTIONAL, 'Adds time to filename (only if filename was not provided)')
             ->addOption('compression', 'c', InputOption::VALUE_REQUIRED, 'Compress the dump file using one of the supported algorithms')
             ->addOption('only-command', null, InputOption::VALUE_NONE, 'Print only mysqldump command. Do not execute')
             ->addOption('print-only-filename', null, InputOption::VALUE_NONE, 'Execute and prints not output except the dump filename')
             ->addOption('no-single-transaction', null, InputOption::VALUE_NONE, 'Do not use single-transaction (not recommended, this is blocking)')
+            ->addOption('human-readable', null, InputOption::VALUE_NONE, 'Use a single insert with column names per row. Useful to track database differences, but significantly slows down a later import')
             ->addOption('stdout', null, InputOption::VALUE_NONE, 'Dump to stdout')
-            ->addOption('strip', null, InputOption::VALUE_OPTIONAL, 'Tables to strip (dump only structure of those tables)')
+            ->addOption('strip', 's', InputOption::VALUE_OPTIONAL, 'Tables to strip (dump only structure of those tables)')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Do not prompt if all options are defined')
             ->setDescription('Dumps database with mysqldump cli client according to informations from local.xml');
+    }
+
+    /**
+     * @return bool
+     */
+    public function isEnabled()
+    {
+        return !OperatingSystem::isWindows();
     }
 
     public function getTableDefinitions()
@@ -119,7 +129,7 @@ class DumpCommand extends AbstractDatabaseCommand
             }
 
             // resolve wildcards
-            if (strpos($exclude, '*')) {
+            if (strpos($exclude, '*') !== false) {
                 $connection = $this->_getConnection();
                 $sth = $connection->prepare('SHOW TABLES LIKE :like', array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
                 $sth->execute(
@@ -173,11 +183,15 @@ class DumpCommand extends AbstractDatabaseCommand
             $dumpOptions = '';
         }
 
+        if ($input->getOption('human-readable')) {
+            $dumpOptions .= '--complete-insert --skip-extended-insert ';
+        }
         $execs = array();
 
 
         if (!$stripTables) {
             $exec = 'mysqldump ' . $dumpOptions . $this->getMysqlClientToolConnectionString();
+            $exec .= $this->postDumpPipeCommands();
             $exec = $compressor->getCompressingCommand($exec);
             if (!$input->getOption('stdout')) {
                 $exec .= ' > ' . escapeshellarg($fileName);
@@ -187,6 +201,7 @@ class DumpCommand extends AbstractDatabaseCommand
             // dump structure for strip-tables
             $exec = 'mysqldump ' . $dumpOptions . '--no-data ' . $this->getMysqlClientToolConnectionString();
             $exec .= ' ' . implode(' ', $stripTables);
+            $exec .= $this->postDumpPipeCommands();
             $exec = $compressor->getCompressingCommand($exec);
             if (!$input->getOption('stdout')) {
                 $exec .= ' > ' . escapeshellarg($fileName);
@@ -200,6 +215,7 @@ class DumpCommand extends AbstractDatabaseCommand
 
             // dump data for all other tables
             $exec = 'mysqldump ' . $dumpOptions . $ignore . $this->getMysqlClientToolConnectionString();
+            $exec .= $this->postDumpPipeCommands();
             $exec = $compressor->getCompressingCommand($exec);
             if (!$input->getOption('stdout')) {
                 $exec .= ' >> ' . escapeshellarg($fileName);
@@ -240,18 +256,40 @@ class DumpCommand extends AbstractDatabaseCommand
     }
 
     /**
+     * Commands which filter mysql data. Piped to mysqldump command
+     *
+     * @return string
+     */
+    protected function postDumpPipeCommands()
+    {
+        return ' | sed -e ' . escapeshellarg('s/DEFINER[ ]*=[ ]*[^*]*\*/\*/');
+    }
+
+    /**
      * @param \Symfony\Component\Console\Input\InputInterface $input
      * @param \Symfony\Component\Console\Output\OutputInterface $output
      * @param \N98\Magento\Command\Database\Compressor $compressor
      */
     protected function getFileName(InputInterface $input, OutputInterface $output, Compressor\AbstractCompressor $compressor)
     {
-        $timeStamp = '_' . date('Y-m-d_His');
+        $namePrefix = '';
+        $nameSuffix = '';
+        $nameExtension = '.sql';
+
+        if ($input->getOption('add-time') !== false) {
+            $timeStamp = date('Y-m-d_His');
+
+            if ($input->getOption('add-time') == 'suffix') {
+                $nameSuffix = '_' . $timeStamp;
+            } else {
+                $namePrefix = $timeStamp . '_';
+            }
+        }
+
         if (($fileName = $input->getArgument('filename')) === null && !$input->getOption('stdout')) {
             $dialog = $this->getHelperSet()->get('dialog');
-            $defaultName = $this->dbSettings['dbname']
-                         . ($input->getOption('add-time') ? $timeStamp : '')
-                         . '.sql';
+            $defaultName = $namePrefix . $this->dbSettings['dbname'] . $nameSuffix
+                         . $nameExtension;
             if (!$input->getOption('force')) {
                 $fileName = $dialog->ask($output, '<question>Filename for SQL dump:</question> [<comment>' . $defaultName . '</comment>]', $defaultName);
             } else {
@@ -259,17 +297,14 @@ class DumpCommand extends AbstractDatabaseCommand
             }
         } else {
             if (($input->getOption('add-time'))) {
-                $extension_pos = strrpos($fileName, '.'); // find position of the last dot, so where the extension starts
-                if ($extension_pos !== false) {
-                    $fileName = substr($fileName, 0, $extension_pos) . $timeStamp . substr($fileName, $extension_pos);
-                } else {
-                    $fileName .= $timeStamp;
-                }
+                $path_parts = pathinfo($fileName);
+                $fileName = ($path_parts['dirname'] == '.' ? '' : $path_parts['dirname'] . DIRECTORY_SEPARATOR ) .
+                    $namePrefix . $path_parts['filename'] . $nameSuffix . '.' . $path_parts['extension'];
             }
         }
-        
+
         $fileName = $compressor->getFileName($fileName);
-        
+
         return $fileName;
     }
 }
