@@ -13,6 +13,7 @@ use N98\Magento\Command\Cache\FlushCommand as CacheFlushCommand;
 use N98\Magento\Command\Cache\ListCommand as CacheListCommand;
 use N98\Magento\Command\Cms\Banner\ToggleCommand as MagentoCmsBannerToggleCommand;
 use N98\Magento\Command\Cms\Page\PublishCommand as MagentoCmsPagePublishCommand;
+use N98\Magento\Command\Config\DeleteCommand as ConfigDeleteCommand;
 use N98\Magento\Command\Config\DumpCommand as ConfigPrintCommand;
 use N98\Magento\Command\Config\GetCommand as ConfigGetCommand;
 use N98\Magento\Command\Config\SetCommand as ConfigSetCommand;
@@ -24,6 +25,7 @@ use N98\Magento\Command\Customer\CreateDummyCommand as CustomerCreateDummyComman
 use N98\Magento\Command\Customer\InfoCommand as CustomerInfoCommand;
 use N98\Magento\Command\Customer\ListCommand as CustomerListCommand;
 use N98\Magento\Command\Database\ConsoleCommand as DatabaseConsoleCommand;
+use N98\Magento\Command\Database\CreateCommand as DatabaseCreateCommand;
 use N98\Magento\Command\Database\DropCommand as DatabaseDropCommand;
 use N98\Magento\Command\Database\DumpCommand as DatabaseDumpCommand;
 use N98\Magento\Command\Database\ImportCommand as DatabaseImportCommand;
@@ -78,9 +80,11 @@ use N98\Magento\Command\System\Store\ListCommand as SystemStoreListCommand;
 use N98\Magento\Command\System\Url\ListCommand as SystemUrlListCommand;
 use N98\Magento\Command\System\Website\ListCommand as SystemWebsiteListCommand;
 use N98\Magento\EntryPoint\Magerun as MagerunEntryPoint;
+use N98\Util\ArrayFunctions;
 use N98\Util\Console\Helper\ParameterHelper;
 use N98\Util\Console\Helper\TableHelper;
 use N98\Util\Console\Helper\TwigHelper;
+use N98\Util\Console\Helper\MagentoHelper;
 use N98\Util\OperatingSystem;
 use N98\Util\String;
 use Symfony\Component\Console\Application as BaseApplication;
@@ -90,7 +94,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Finder\Finder;
 
 class Application extends BaseApplication
 {
@@ -109,7 +112,7 @@ class Application extends BaseApplication
     /**
      * @var string
      */
-    const APP_VERSION = '1.70.3';
+    const APP_VERSION = '1.74.0';
 
     /**
      * @var string
@@ -188,7 +191,6 @@ class Application extends BaseApplication
         return $inputDefinition;
     }
 
-
     /**
      * Search for magento root folder
      */
@@ -205,7 +207,12 @@ class Application extends BaseApplication
             $folder = $this->getMagentoRootFolder();
         }
 
-        $this->_detectMagentoVersion($folder);
+        $this->getHelperSet()->set(new MagentoHelper(), 'magento');
+        $magentoHelper = $this->getHelperSet()->get('magento'); /* @var $magentoHelper MagentoHelper */
+        $magentoHelper->detect($folder);
+        $this->_magentoRootFolder = $magentoHelper->getRootFolder();
+        $this->_magentoEnterprise = $magentoHelper->isEnterpriseEdition();
+        $this->_magentoMajorVersion = $magentoHelper->getMajorVersion();
     }
 
     /**
@@ -542,6 +549,9 @@ class Application extends BaseApplication
         return $return;
     }
 
+    /**
+     * @return void
+     */
     protected function registerCommands()
     {
         $this->add(new GenerateLocalXmlConfigCommand());
@@ -550,7 +560,9 @@ class Application extends BaseApplication
         $this->add(new DatabaseInfoCommand());
         $this->add(new DatabaseImportCommand());
         $this->add(new DatabaseConsoleCommand());
+        $this->add(new DatabaseCreateCommand());
         $this->add(new DatabaseQueryCommand());
+        $this->add(new ConfigDeleteCommand());
         $this->add(new ConfigPrintCommand());
         $this->add(new ConfigGetCommand());
         $this->add(new ConfigSetCommand());
@@ -622,6 +634,7 @@ class Application extends BaseApplication
 
     /**
      * @param array $initConfig
+     *
      * @return array
      */
     protected function _loadConfig($initConfig)
@@ -631,16 +644,19 @@ class Application extends BaseApplication
         return $configLoader->toArray();
     }
 
-    public function init()
+    /**
+     * @param array $initConfig
+     *
+     * @return void
+     */
+    public function init($initConfig = array())
     {
         if (!$this->_isInitialized) {
             // Suppress DateTime warnings
             date_default_timezone_set(@date_default_timezone_get());
 
             $this->detectMagento();
-            if (count($this->config) == 0) { // made for unit tests to inject a complete config
-                $this->config = $this->_loadConfig($this->config);
-            }
+            $this->config = $this->_loadConfig(ArrayFunctions::mergeArrays($this->config, $initConfig));
             $this->registerHelpers();
             if ($this->autoloader) {
                 $this->registerCustomAutoloaders();
@@ -670,53 +686,8 @@ class Application extends BaseApplication
     }
 
     /**
-     * @param $folder
+     * @return void
      */
-    protected function _detectMagentoVersion($folder)
-    {
-        $folders = array();
-        $folderParts = explode(DIRECTORY_SEPARATOR, $folder);
-        foreach ($folderParts as $key => $part) {
-            $explodedFolder = implode(DIRECTORY_SEPARATOR, array_slice($folderParts, 0, $key + 1));
-            if ($explodedFolder !== '') {
-                $folders[] = $explodedFolder;
-            }
-        }
-
-        foreach (array_reverse($folders) as $searchFolder) {
-            $finder = new Finder();
-            $finder
-                ->directories()
-                ->depth(0)
-                ->followLinks()
-                ->name('app')
-                ->name('skin')
-                ->name('lib')
-                ->in($searchFolder);
-
-            if ($finder->count() >= 2) {
-                $files = iterator_to_array($finder, false);
-                /* @var $file \SplFileInfo */
-
-                if (count($files) == 2) {
-                    // Magento 2 has no skin folder.
-                    // @TODO find a better magento 2.x check
-                    $this->_magentoMajorVersion = self::MAGENTO_MAJOR_VERSION_2;
-                }
-
-                $this->_magentoRootFolder = dirname($files[0]->getRealPath());
-
-                if (is_callable(array('\Mage', 'getEdition'))) {
-                    $this->_magentoEnterprise = (\Mage::getEdition() == 'Enterprise');
-                } else {
-                    $this->_magentoEnterprise = is_dir($this->_magentoRootFolder . '/app/code/core/Enterprise');
-                }
-
-                return;
-            }
-        }
-    }
-
     protected function _initMagento2()
     {
         if ($this->_magento2EntryPoint === null) {
@@ -743,6 +714,9 @@ class Application extends BaseApplication
         }
     }
 
+    /**
+     * @return void
+     */
     protected function _initMagento1()
     {
         require_once $this->getMagentoRootFolder() . '/app/Mage.php';
