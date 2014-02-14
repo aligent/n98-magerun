@@ -25,16 +25,27 @@ Build phar with:
     </fileset>
     <fileset dir="vendor" id="vendor_folder">
         <include name="**/**" />
+
+        <!-- VCS -->
         <exclude name=".git/**" />
         <exclude name=".svn/**" />
-        <exclude name="**/Tests/**" />
-        <exclude name="**/tests/**" />
+
+        <!-- Docs -->
         <exclude name="**/doc/**" />
         <exclude name="**/docs/**" />
+
+        <!-- unused libs -->
         <exclude name="fzaninotto/faker/src/Faker/ORM" />
+
+        <!-- Tests -->
+        <exclude name="**/Tests/**" />
+        <exclude name="**/tests/**" />
         <exclude name="twig/twig/test/**" />
         <exclude name="twig/twig/ext/**" />
+
+        <!-- Test utils -->
         <exclude name="phpunit/**" />
+        <exclude name="mikey179/**" />
     </fileset>
 
     <target name="dist">
@@ -71,6 +82,14 @@ Build phar with:
     <target name="install">
         <exec command="sudo cp ${project.basedir}/n98-magerun.phar /usr/local/bin/n98-magerun.phar;" />
         <exec command="sudo chmod a+x /usr/local/bin/n98-magerun.phar;" />
+    </target>
+
+    <target name="test">
+        <exec command="vendor/bin/phpunit --debug --coverage-html ${project.basedir}/reports/coverage" passthru="true" />
+    </target>
+
+    <target name="apigen">
+        <apigen source="src" destination="doc/api" title="n98-magerun API" deprecated="true" todo="true" />
     </target>
 
 </project>

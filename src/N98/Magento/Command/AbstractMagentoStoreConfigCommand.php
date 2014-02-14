@@ -2,12 +2,10 @@
 
 namespace N98\Magento\Command;
 
-use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Finder\Finder;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\NullOutput;
 
@@ -62,6 +60,13 @@ abstract class AbstractMagentoStoreConfigCommand extends AbstractMagentoCommand
      * @var string
      */
     protected $trueName = 'enabled';
+
+    /**
+     * Add admin store to interactive prompt
+     *
+     * @var bool
+     */
+    protected $withAdminStore = false;
 
     /**
      * @var string
@@ -148,7 +153,7 @@ abstract class AbstractMagentoStoreConfigCommand extends AbstractMagentoCommand
      */
     protected function _initStore($input, $output)
     {
-        return $this->getHelperSet()->get('parameter')->askStore($input, $output);
+        return $this->getHelperSet()->get('parameter')->askStore($input, $output, 'store', $this->withAdminStore);
     }
 
     /**

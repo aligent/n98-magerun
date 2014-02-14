@@ -3,9 +3,7 @@
 namespace N98\Magento\Command\System;
 
 use N98\Magento\Command\AbstractMagentoCommand;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class CheckCommand extends AbstractMagentoCommand
@@ -20,11 +18,26 @@ class CheckCommand extends AbstractMagentoCommand
      */
     protected $_verificationTimeOut = 30;
 
+    /**
+     * Command config
+     *
+     * @var array
+     */
+    protected $_config;
+
     protected function configure()
     {
         $this
             ->setName('sys:check')
             ->setDescription('Checks Magento System');
+
+        $help = <<<HELP
+- Checks missing files and folders
+- Security
+- PHP Extensions (Required and Bytecode Cache)
+- MySQL InnoDB Engine
+HELP;
+        $this->setHelp($help);
     }
 
     /**
@@ -34,8 +47,9 @@ class CheckCommand extends AbstractMagentoCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $this->_config = $this->getCommandConfig();
         $this->detectMagento($output);
-        if ($this->initMagento($output)) {
+        if ($this->initMagento()) {
 
             if ($this->_magentoMajorVersion == self::MAGENTO_MAJOR_VERSION_2) {
                 $output->writeln("<error>WARNING: Magento 2 requirements are not yet defined. Until then Magento 1 requirements are checked.</error>");
@@ -61,37 +75,29 @@ class CheckCommand extends AbstractMagentoCommand
         /**
          * Check folders
          */
-        $folders = array(
-            array('media', 'Used for images and other media files.'),
-            array('var', 'Used for caching, reports, etc.'),
-            array('var/cache', 'Used for caching'),
-            array('var/session', 'Used as file based sesssion save'),
-        );
+        $folders = $this->_config['filesystem']['folders'];
 
-        foreach ($folders as $folder) {
-            if (file_exists($this->_magentoRootFolder . DIRECTORY_SEPARATOR . $folder[0])) {
-                $output->writeln("<info>Folder <comment>" . $folder[0] . "</comment> found.</info>");
-                if (!is_writeable($this->_magentoRootFolder . DIRECTORY_SEPARATOR . $folder[0])) {
-                    $output->writeln("<error>Folder " . $folder[0] . " is not writeable!</error><comment> Usage: " . $folder[1] . "</comment>");
+        foreach ($folders as $folder => $comment) {
+            if (file_exists($this->_magentoRootFolder . DIRECTORY_SEPARATOR . $folder)) {
+                $output->writeln("<info>Folder <comment>" . $folder . "</comment> found.</info>");
+                if (!is_writeable($this->_magentoRootFolder . DIRECTORY_SEPARATOR . $folder)) {
+                    $output->writeln("<error>Folder " . $folder . " is not writeable!</error><comment> Usage: " . $comment . "</comment>");
                 }
             } else {
-                $output->writeln("<error>Folder " . $folder[0] . " not found!</error><comment> Usage: " . $folder[1] . "</comment>");
+                $output->writeln("<error>Folder " . $folder . " not found!</error><comment> Usage: " . $comment . "</comment>");
             }
         }
 
         /**
          * Check files
          */
-        $files = array(
-            array('app/etc/local.xml', 'Magento local configuration.'),
-            array('index.php.sample', 'Used to generate staging websites in Magento enterprise edition'),
-        );
+        $files = $folders = $this->_config['filesystem']['files'];
 
-        foreach ($files as $file) {
-            if (file_exists($this->_magentoRootFolder . DIRECTORY_SEPARATOR . $file[0])) {
-                $output->writeln("<info>File <comment>" . $file[0] . "</comment> found.</info>");
+        foreach ($files as $file => $comment) {
+            if (file_exists($this->_magentoRootFolder . DIRECTORY_SEPARATOR . $file)) {
+                $output->writeln("<info>File <comment>" . $file . "</comment> found.</info>");
             } else {
-                $output->writeln("<error>File " . $file[0] . " not found!</error><comment> Usage: " . $file[1] . "</comment>");
+                $output->writeln("<error>File " . $file . " not found!</error><comment> Usage: " . $comment . "</comment>");
             }
         }
     }
@@ -105,18 +111,7 @@ class CheckCommand extends AbstractMagentoCommand
     {
         $this->writeSection($output, 'Check: PHP');
 
-        $requiredExtensions = array(
-            'simplexml',
-            'mcrypt',
-            'hash',
-            'gd',
-            'dom',
-            'iconv',
-            'curl',
-            'soap',
-            'pdo',
-            'pdo_mysql',
-        );
+        $requiredExtensions = $this->_config['php']['required-extensions'];
 
         foreach ($requiredExtensions as $ext) {
             if (extension_loaded($ext)) {
@@ -129,13 +124,7 @@ class CheckCommand extends AbstractMagentoCommand
         /**
          * Check Bytecode Cache
          */
-        $bytecopdeCacheExtensions = array(
-            'apc',
-            'eaccelerator',
-            'xcache',
-            'Zend Optimizer',
-            'Zend OPcache',
-        );
+        $bytecopdeCacheExtensions = $this->_config['php']['bytecode-cache-extensions'];
         $bytecodeCacheExtensionLoaded = false;
         $bytecodeCacheExtension = null;
         foreach ($bytecopdeCacheExtensions as $ext) {
@@ -282,7 +271,7 @@ class CheckCommand extends AbstractMagentoCommand
     /**
      * @param $output
      * @param $configPath
-     * @param Closure $check
+     * @param \Closure $check
      * @param $errorMessage
      * @param $checkType
      */

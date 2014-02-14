@@ -22,6 +22,11 @@ class MetaCommand extends AbstractMagentoCommand
         'resource helpers',
     );
 
+    /**
+     * List of supported static factory methods
+     *
+     * @var array
+     */
     protected $groupFactories = array(
         'blocks' => array(
             '\Mage::getBlockSingleton'
@@ -108,7 +113,7 @@ class MetaCommand extends AbstractMagentoCommand
                 $classMaps = array();
 
                 foreach ($this->groups as $group) {
-                    $classMaps[$group] = $this->getClassMapForGroup($group);
+                    $classMaps[$group] = $this->getClassMapForGroup($group, $output);
 
                     if (!$input->getOption('stdout') && count($classMaps[$group]) > 0) {
                         $output->writeln('<info>Generated definitions for <comment>' . $group . '</comment> group</info>');
@@ -160,13 +165,19 @@ class MetaCommand extends AbstractMagentoCommand
      * app/code/core/Mage/Payment/Model/Paygate/Request.php             -> Mage_Paygate_Model_Authorizenet_Request
      * app/code/core/Mage/Dataflow/Model/Convert/Iterator.php           -> Mage_Dataflow_Model_Session_Adapter_Iterator
      *
-     * @param SplFileInfo $file
-     * @param string $className
-     * @return int
+     * @param SplFileInfo     $file
+     * @param string          $className
+     * @param OutputInterface $output
+     * @return bool
      */
-    protected function isClassDefinedInFile(SplFileInfo $file, $className)
+    protected function isClassDefinedInFile(SplFileInfo $file, $className, OutputInterface $output)
     {
-        return preg_match("/class\s+{$className}/m", $file->getContents());
+        try {
+            return preg_match("/class\s+{$className}/m", $file->getContents());
+        } catch (\Exception $e) {
+            $output->writeln('<error>File: ' . $file->__toString() . ' | ' . $e->getMessage() . '</error>');
+            return false;
+        }
     }
 
     /**
@@ -197,9 +208,10 @@ class MetaCommand extends AbstractMagentoCommand
 
     /**
      * @param string $group
+     * @param \Symfony\Component\Console\Output\OutputInterface $output
      * @return array
      */
-    protected function getClassMapForGroup($group)
+    protected function getClassMapForGroup($group, OutputInterface $output)
     {
         /**
          * Generate resource helper only for Magento >= EE 1.11 or CE 1.6
@@ -243,11 +255,12 @@ class MetaCommand extends AbstractMagentoCommand
                 continue;
             }
 
-            $finder = new Finder();
+            $finder = Finder::create();
             $finder
                 ->files()
                 ->in($searchFolders)
                 ->followLinks()
+                ->ignoreUnreadableDirs(true)
                 ->name('*.php')
                 ->notName('install-*')
                 ->notName('upgrade-*')
@@ -281,7 +294,7 @@ class MetaCommand extends AbstractMagentoCommand
                 if ($classNameAfterRewrites) {
                     $addToList = true;
                     if ($classNameAfterRewrites === $classNameByPath
-                        && !$this->isClassDefinedInFile($file, $classNameByPath)
+                        && !$this->isClassDefinedInFile($file, $classNameByPath, $output)
                     ) {
                         $addToList = false;
                     }

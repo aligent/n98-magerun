@@ -3,10 +3,7 @@
 namespace N98\Magento\Command\Developer\Report;
 
 use N98\Magento\Command\AbstractMagentoCommand;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\Finder;
 
@@ -42,7 +39,7 @@ class CountCommand extends AbstractMagentoCommand
      */
     protected function getFileCount($path)
     {
-        $finder = new Finder();
-        return $finder->files()->in($path)->count();
+        $finder = Finder::create();
+        return $finder->files()->ignoreUnreadableDirs(true)->in($path)->count();
     }
 }

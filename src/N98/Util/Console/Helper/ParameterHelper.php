@@ -35,14 +35,17 @@ class ParameterHelper extends AbstractHelper
     }
 
     /**
-     * @param \Symfony\Component\Console\Input\InputInterface $input
+     * @param \Symfony\Component\Console\Input\InputInterface   $input
      * @param \Symfony\Component\Console\Output\OutputInterface $output
-     * @param string $argumentName
+     * @param string                                            $argumentName
+     * @param  bool                                             $withDefaultStore
+     *
      * @return mixed
+     *
      * @throws \InvalidArgumentException
      * @throws \Exception
      */
-    public function askStore(InputInterface $input, OutputInterface $output, $argumentName = 'store')
+    public function askStore(InputInterface $input, OutputInterface $output, $argumentName = 'store', $withDefaultStore = false)
     {
         try {
             if ($input->getArgument($argumentName) === null) {
@@ -52,20 +55,25 @@ class ParameterHelper extends AbstractHelper
         } catch (\Exception $e) {
             $stores = array();
             $i = 0;
-            foreach (\Mage::app()->getStores() as $store) {
+            foreach (\Mage::app()->getStores($withDefaultStore) as $store) {
                 $stores[$i] = $store->getId();
                 $question[] = '<comment>[' . ($i + 1) . ']</comment> ' . $store->getCode() . ' - ' . $store->getName() . PHP_EOL;
                 $i++;
             }
-            $question[] = '<question>Please select a store: </question>';
 
-            $storeId = $this->getHelperSet()->get('dialog')->askAndValidate($output, $question, function($typeInput) use ($stores) {
-                if (!isset($stores[$typeInput - 1])) {
-                    throw new \InvalidArgumentException('Invalid store');
-                }
+            if (count($stores) > 1) {
+                $question[] = '<question>Please select a store: </question>';
+                $storeId = $this->getHelperSet()->get('dialog')->askAndValidate($output, $question, function($typeInput) use ($stores) {
+                    if (!isset($stores[$typeInput - 1])) {
+                        throw new \InvalidArgumentException('Invalid store');
+                    }
 
-                return $stores[$typeInput - 1];
-            });
+                    return $stores[$typeInput - 1];
+                });
+            } else {
+                // only one store view available -> take it
+                $storeId = $stores[0];
+            }
 
             $store = \Mage::app()->getStore($storeId);
         }
@@ -181,6 +189,7 @@ class ParameterHelper extends AbstractHelper
     {
         $this->initValidator();
         $validator = $this->validator;
+        $errors = null;
 
         if (!empty($value)) {
             $errors = $validator->validateValue(array($name => $value), $constraints);

@@ -5,7 +5,6 @@ namespace N98\Magento\Command\System\Cron;
 use N98\Magento\Command\AbstractMagentoCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Validator\Exception\InvalidArgumentException;
 
@@ -23,11 +22,17 @@ class RunCommand extends AbstractCronCommand
             ->setName('sys:cron:run')
             ->addArgument('job', InputArgument::OPTIONAL, 'Job code')
             ->setDescription('Runs a cronjob by job code');
+        $help = <<<HELP
+If no `job` argument is passed you can select a job from a list.
+See it in action: http://www.youtube.com/watch?v=QkzkLgrfNaM
+HELP;
+        $this->setHelp($help);
     }
 
     /**
-     * @param \Symfony\Component\Console\Input\InputInterface $input
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @throws \Exception
      * @return int|void
      */
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -97,8 +102,8 @@ class RunCommand extends AbstractCronCommand
     }
 
     /**
-     * @param \Symfony\Component\Console\Input\InputInterface $input
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
+     * @param InputInterface $input
+     * @param OutputInterface $output
      * @param array $jobs
      * @return mixed
      * @throws \InvalidArgumentException

@@ -22,7 +22,7 @@ class InfoCommand extends AbstractCustomerCommand
             ->setName('customer:info')
             ->addArgument('email', InputArgument::OPTIONAL, 'Email')
             ->addArgument('website', InputArgument::OPTIONAL, 'Website of the customer')
-            ->setDescription('Show infos about a customer');
+            ->setDescription('Loads basic customer info by email address.');
     }
 
     /**
@@ -55,18 +55,18 @@ class InfoCommand extends AbstractCustomerCommand
                     //$attribute = \Mage::getSingleton('eav/config')->getAttribute('customer', $key);
                     $attribute = $customer->getResource()->getAttribute($key);
                     $table[] = array(
-                        'Attribute' => ($attribute instanceof \Mage_Customer_Model_Attribute ? $attribute->getFrontend()->getLabel() : $key),
-                        'Value'     => ($attribute instanceof \Mage_Customer_Model_Attribute ? $attribute->getFrontend()->getValue($customer) : $value),
+                        $attribute instanceof \Mage_Customer_Model_Attribute ? $attribute->getFrontend()->getLabel() : $key,
+                        $attribute instanceof \Mage_Customer_Model_Attribute ? $attribute->getFrontend()->getValue($customer) : $value,
                     );
                 } catch (\Exception $e) {
-                    $table[] = array(
-                        'Attribute' => $key,
-                        'Value'     => $value,
-                    );
+                    $table[] = array($key, $value);
                 }
             }
 
-            $this->getHelper('table')->write($output, $table);
+            $this->getHelper('table')
+                ->setHeaders(array('Attribute', 'Value'))
+                ->setRows($table)
+                ->render($output);
         }
     }
 }

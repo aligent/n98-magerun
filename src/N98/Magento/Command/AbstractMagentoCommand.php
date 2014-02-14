@@ -2,6 +2,7 @@
 
 namespace N98\Magento\Command;
 
+use Composer\Package\PackageInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -9,6 +10,13 @@ use Composer\Package\Loader\ArrayLoader as PackageLoader;
 use Composer\Factory as ComposerFactory;
 use Composer\IO\ConsoleIO;
 
+/**
+ * Class AbstractMagentoCommand
+ *
+ * @package N98\Magento\Command
+ *
+ * @method \N98\Magento\Application getApplication() getApplication()
+ */
 abstract class AbstractMagentoCommand extends Command
 {
     /**
@@ -60,9 +68,28 @@ abstract class AbstractMagentoCommand extends Command
         $this->checkDeprecatedAliases($input, $output);
     }
 
+    /**
+     * @param array $codeArgument
+     * @param bool  $status
+     * @return bool
+     */
+    protected function saveCacheStatus($codeArgument, $status)
+    {
+        $cacheTypes = $this->_getCacheModel()->getTypes();
+        $enable = \Mage::app()->useCache();
+        foreach ($cacheTypes as $cacheCode => $cacheModel) {
+            if (empty($codeArgument) || in_array($cacheCode, $codeArgument)) {
+                $enable[$cacheCode] = $status ? 1 : 0;
+            }
+        }
+
+        \Mage::app()->saveUseCache($enable);
+    }
+
     private function _initWebsites()
     {
         $this->_websiteCodeMap = array();
+        /** @var \Mage_Core_Model_Website[] $websites */
         $websites = \Mage::app()->getWebsites(false);
         foreach ($websites as $website) {
             $this->_websiteCodeMap[$website->getId()] = $website->getCode();
@@ -101,13 +128,17 @@ abstract class AbstractMagentoCommand extends Command
     }
 
     /**
+     * @param string|null $commandClass
      * @return array
      */
-    protected function getCommandConfig()
+    protected function getCommandConfig($commandClass = null)
     {
+        if ($commandClass == null) {
+            $commandClass = get_class($this);
+        }
         $configArray = $this->getApplication()->getConfig();
-        if (isset($configArray['commands'][get_class($this)])) {
-            return $configArray['commands'][get_class($this)];
+        if (isset($configArray['commands'][$commandClass])) {
+            return $configArray['commands'][$commandClass];
         }
 
         return null;
@@ -181,7 +212,7 @@ abstract class AbstractMagentoCommand extends Command
     }
 
     /**
-     * @return Mage_Core_Helper_Data
+     * @return \Mage_Core_Helper_Data
      */
     protected function getCoreHelper()
     {
@@ -192,7 +223,7 @@ abstract class AbstractMagentoCommand extends Command
     }
 
     /**
-     * @param Input Interface $input
+     * @param InputInterface $input
      * @param OutputInterface $output
      * @return \Composer\Downloader\DownloadManager
      */
@@ -204,26 +235,28 @@ abstract class AbstractMagentoCommand extends Command
     }
 
     /**
-     * @return \Composer\Package\MemoryPackage
+     * @param array|PackageInterface $config
+     * @return \Composer\Package\CompletePackage
      */
     protected function createComposerPackageByConfig($config)
     {
         $packageLoader = new PackageLoader();
-        return $package = $packageLoader->load($config);
+        return $packageLoader->load($config);
     }
 
     /**
-     * @param Input Interface $input
+     * @param InputInterface $input
      * @param OutputInterface $output
-     * @param array|\Composer\Package\PackageInterface $config
+     * @param array|PackageInterface $config
      * @param string $targetFolder
      * @param bool $preferSource
-     * @return \Composer\Package\MemoryPackage
+     * @return \Composer\Package\CompletePackage
      */
-    protected function downloadByComposerConfig($input, $output, $config, $targetFolder, $preferSource = true)
-    {
+    protected function downloadByComposerConfig(InputInterface $input, OutputInterface $output, $config, $targetFolder,
+        $preferSource = true
+    ) {
         $dm = $this->getComposerDownloadManager($input, $output);
-        if (! $config instanceof \Composer\Package\PackageInterface) {
+        if (! $config instanceof PackageInterface) {
             $package = $this->createComposerPackageByConfig($config);
         } else {
             $package = $config;
@@ -258,8 +291,8 @@ abstract class AbstractMagentoCommand extends Command
     /**
      * Magento 1 / 2 switches
      *
-     * @param $mage1code string Magento 1 class code
-     * @param $mage2class string Magento 2 class name
+     * @param string $mage1code Magento 1 class code
+     * @param string $mage2class Magento 2 class name
      * @return \Mage_Core_Model_Abstract
      */
     protected function _getModel($mage1code, $mage2class)
@@ -274,8 +307,8 @@ abstract class AbstractMagentoCommand extends Command
     /**
      * Magento 1 / 2 switches
      *
-     * @param $mage1code string Magento 1 class code
-     * @param $mage2class string Magento 2 class name
+     * @param string $mage1code Magento 1 class code
+     * @param string $mage2class Magento 2 class name
      * @return \Mage_Core_Model_Abstract
      */
     protected function _getResourceModel($mage1code, $mage2class)
@@ -290,8 +323,8 @@ abstract class AbstractMagentoCommand extends Command
     /**
      * Magento 1 / 2 switches
      *
-     * @param $mage1code string Magento 1 class code
-     * @param $mage2class string Magento 2 class name
+     * @param string $mage1code Magento 1 class code
+     * @param string $mage2class Magento 2 class name
      * @return \Mage_Core_Model_Abstract
      */
     protected function _getResourceSingleton($mage1code, $mage2class)
@@ -310,5 +343,31 @@ abstract class AbstractMagentoCommand extends Command
     protected function _parseBoolOption($value)
     {
         return in_array(strtolower($value), array('y', 'yes', 1, 'true'));
+    }
+
+    /**
+     * @param string $value
+     * @return string
+     */
+    protected function formatActive($value)
+    {
+        if (in_array($value, array(1, 'true'))) {
+            return 'active';
+        }
+
+        return 'inactive';
+    }
+
+    /**
+     * @param InputInterface  $input
+     * @param OutputInterface $output
+     *
+     * @return int
+     */
+    public function run(InputInterface $input, OutputInterface $output)
+    {
+        $this->getHelperSet()->setCommand($this);
+
+        return parent::run($input, $output);
     }
 }

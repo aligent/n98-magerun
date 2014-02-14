@@ -7,22 +7,35 @@ use N98\Magento\Command\AbstractMagentoCommand;
 abstract class AbstractConfigCommand extends AbstractMagentoCommand
 {
     /**
-     * @return \Mage_Core_Model_Abstract
+     * @return \Mage_Core_Model_Encryption
      */
     protected function getEncryptionModel()
     {
-        return $this->_getModel('core/encryption', 'Mage_Core_Model_Encryption')
-                    ->setHelper($this->getCoreHelper());
+        if ($this->_magentoMajorVersion == self::MAGENTO_MAJOR_VERSION_2) {
+            // @TODO Magento 2 support
+        } else {
+            return \Mage::helper('core')->getEncryptor();
+        }
+    }
+
+    /**
+     * @return \Mage_Core_Model_Abstract
+     */
+    protected function _getConfigDataModel()
+    {
+        return $this->_getModel('core/config_data', 'Mage_Core_Model_Config_Data');
     }
 
     /**
      * @param string $value
-     * @param boolean $decryptionRequired
+     * @param string $encryptionType
      * @return string
      */
-    protected function _formatValue($value, $decryptionRequired)
+    protected function _formatValue($value, $encryptionType)
     {
-        if ($decryptionRequired) {
+        if ($encryptionType == 'encrypt') {
+            $value = $this->getEncryptionModel()->encrypt($value);
+        } else if ($encryptionType == 'decrypt') {
             $value = $this->getEncryptionModel()->decrypt($value);
         }
 

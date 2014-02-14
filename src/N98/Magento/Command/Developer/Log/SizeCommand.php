@@ -2,11 +2,9 @@
 
 namespace N98\Magento\Command\Developer\Log;
 
-use N98\Magento\Command\AbstractMagentoCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class SizeCommand extends AbstractLogCommand
@@ -15,13 +13,16 @@ class SizeCommand extends AbstractLogCommand
     {
         $this->setName('dev:log:size')
              ->addArgument('log_filename', InputArgument::OPTIONAL, 'Name of log file.')
+             ->addOption('human', '', InputOption::VALUE_NONE, 'Human readable output')
              ->setDescription('Get size of log file');
     }
     
     /**
      * @param \Symfony\Component\Console\Input\InputInterface $input
      * @param \Symfony\Component\Console\Output\OutputInterface $output
-     * @return int|void
+     *
+     * @throws \RuntimeException
+     * @return void
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
@@ -45,7 +46,11 @@ class SizeCommand extends AbstractLogCommand
                 $size = 0;
             }
 
-            $output->writeln("$size");
+            if ($input->getOption('human')) {
+                $output->writeln(\N98\Util\Filesystem::humandFilesize($size));
+            } else {
+                $output->writeln("$size");
+            }
         }
     }
 }

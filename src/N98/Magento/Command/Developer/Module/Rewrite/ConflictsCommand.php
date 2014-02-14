@@ -18,6 +18,14 @@ class ConflictsCommand extends AbstractRewriteCommand
             ->addOption('log-junit', null, InputOption::VALUE_REQUIRED, 'Log conflicts in JUnit XML format to defined file.')
             ->setDescription('Lists all magento rewrite conflicts')
         ;
+
+        $help = <<<HELP
+Lists all duplicated rewrites and tells you which class is loaded by Magento.
+The command checks class inheritance in order of your module dependencies.
+
+* If a filename with `--log-junit` option is set the tool generates an XML file and no output to *stdout*.
+HELP;
+        $this->setHelp($help);
     }
 
     /**
@@ -57,12 +65,11 @@ class ConflictsCommand extends AbstractRewriteCommand
                     $this->logJUnit($tableData, $input->getOption('log-junit'), microtime($time) - $time);
                 } else {
                     if ($conflictCounter > 0) {
-                        $this->writeSection($output, 'Conflicts');
                         array_map(array($table, 'appendRow'), $tableData);
                         $output->write($table->render());
                         $output->writeln('<error>' . $conflictCounter . ' conflict' . ($conflictCounter > 1 ? 's' : '') . ' was found!</error>');
                     } else {
-                        $output->writeln('<info>No rewrite conflicts was found.</info>');
+                        $output->writeln('<info>No rewrite conflicts were found.</info>');
                     }
                 }
             }
@@ -139,10 +146,12 @@ class ConflictsCommand extends AbstractRewriteCommand
         $classes = array_reverse($classes);
         for ($i = 0; $i < count($classes) - 1; $i++) {
             try {
-                $firstClass = new $classes[$i];
-                $nextClass = new $classes[$i + 1];
-                if (! ($firstClass instanceof $nextClass)) {
-                    return true;
+                if (class_exists($classes[$i])
+                    && class_exists($classes[$i + 1])
+                ) {
+                    if (! is_a($classes[$i], $classes[$i + 1], true)) {
+                        return true;
+                    }
                 }
             } catch (\Exception $e) {
                 return true;

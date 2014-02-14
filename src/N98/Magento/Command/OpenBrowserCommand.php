@@ -20,18 +20,25 @@ class OpenBrowserCommand extends AbstractMagentoCommand
     }
 
     /**
-     * @param \Symfony\Component\Console\Input\InputInterface $input
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
+     * @return bool
+     */
+    public function isEnabled()
+    {
+        return function_exists('exec');
+    }
+
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @throws \RuntimeException
      * @return int|void
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $os = new OperatingSystem();
-
         $opener = '';
-        if ($os->isMacOs()) {
+        if (OperatingSystem::isMacOs()) {
             $opener = 'open';
-        } elseif ($os->isWindows()) {
+        } elseif (OperatingSystem::isWindows()) {
             $opener = 'start';
         } else {
             // Linux
@@ -50,8 +57,13 @@ class OpenBrowserCommand extends AbstractMagentoCommand
 
         $this->detectMagento($output);
         if ($this->initMagento($output)) {
-            $store = $this->getHelperSet()->get('parameter')->askStore($input, $output);
-            $url = $store->getBaseUrl(\Mage_Core_Model_Store::URL_TYPE_LINK) . '?___store=' . $store->getCode();
+            $store = $this->getHelperSet()->get('parameter')->askStore($input, $output, 'store', true);
+            if ($store->getId() == \Mage_Core_Model_App::ADMIN_STORE_ID) {
+                $adminFrontName = (string) \Mage::getConfig()->getNode('admin/routers/adminhtml/args/frontName');
+                $url = rtrim($store->getBaseUrl(\Mage_Core_Model_Store::URL_TYPE_WEB), '/') . '/' .  $adminFrontName;
+            } else {
+                $url = $store->getBaseUrl(\Mage_Core_Model_Store::URL_TYPE_LINK) . '?___store=' . $store->getCode();
+            }
             $output->writeln('Opening URL <comment>' . $url . '</comment> in browser');
             exec(escapeshellcmd($opener . ' ' . $url));
         }

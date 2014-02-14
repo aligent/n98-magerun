@@ -5,7 +5,6 @@ namespace N98\Magento\Command\Cache;
 use N98\Magento\Application;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class CleanCommand extends AbstractCacheCommand
@@ -17,6 +16,16 @@ class CleanCommand extends AbstractCacheCommand
             ->addArgument('type', InputArgument::OPTIONAL, 'Cache type code like "config"')
             ->setDescription('Clean magento cache')
         ;
+
+        $help = <<<HELP
+Cleans expired cache entries.
+If you like to remove all entries use `cache:flush`
+Or only one cache type like i.e. full_page cache:
+
+   $ n98-magerun.phar cache:clean full_page
+
+HELP;
+        $this->setHelp($help);
     }
 
     public function isEnabled()

@@ -3,9 +3,6 @@
 namespace N98\Magento\Command\Developer;
 
 use N98\Magento\Command\AbstractMagentoStoreConfigCommand;
-use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 
 class SymlinksCommand extends AbstractMagentoStoreConfigCommand
 {
@@ -43,4 +40,11 @@ class SymlinksCommand extends AbstractMagentoStoreConfigCommand
      * @var string
      */
     protected $trueName = 'allowed';
+
+    /**
+     * Add admin store to interactive prompt
+     *
+     * @var bool
+     */
+    protected $withAdminStore = true;
 }

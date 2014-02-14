@@ -38,18 +38,24 @@ class MagentoHelper extends AbstractHelper
      * Start Magento detection
      *
      * @param string $folder
-     */
-    public function detect($folder)
+     * @param array $subFolders Sub-folders to check
+    */
+    public function detect($folder, $subFolders = array())
     {
         $folders = $this->splitPathFolders($folder);
         $folders = $this->checkModman($folders);
+        $folders = array_merge($folders, $subFolders);
 
         foreach (array_reverse($folders) as $searchFolder) {
+            if (!is_dir($searchFolder) || !is_readable($searchFolder)) {
+                continue;
+            }
             if ($this->_search($searchFolder)) {
-               break;
+                break;
             }
         }
     }
+
 
     /**
      * @return string
@@ -109,23 +115,28 @@ class MagentoHelper extends AbstractHelper
     protected function checkModman($folders)
     {
         foreach (array_reverse($folders) as $searchFolder) {
-            $finder = new Finder();
+            if (!is_readable($searchFolder)) {
+                continue;
+            }            
+            $finder = Finder::create();
             $finder
                 ->files()
+                ->ignoreUnreadableDirs(true)
                 ->depth(0)
                 ->followLinks()
                 ->ignoreDotFiles(false)
                 ->name('.basedir')
                 ->in($searchFolder);
+
             $count = $finder->count();
             if ($count > 0) {
                 $baseFolderContent = trim(file_get_contents($searchFolder . DIRECTORY_SEPARATOR . '.basedir'));
                 if (!empty($baseFolderContent)) {
                     $modmanBaseFolder = $searchFolder
-                                      . DIRECTORY_SEPARATOR
-                                      . '..'
-                                      . DIRECTORY_SEPARATOR
-                                      . trim($baseFolderContent);
+                        . DIRECTORY_SEPARATOR
+                        . '..'
+                        . DIRECTORY_SEPARATOR
+                        . trim($baseFolderContent);
                     array_push($folders, $modmanBaseFolder);
                 }
             }
@@ -135,31 +146,36 @@ class MagentoHelper extends AbstractHelper
     }
 
     /**
-     * @param $searchFolder
+     * @param string $searchFolder
+     *
+     * @return bool
      */
     protected function _search($searchFolder)
     {
-        $finder = new Finder();
+        if (!is_dir($searchFolder . '/app')) {
+            return false;
+        }
+
+        $finder = Finder::create();
         $finder
-            ->directories()
+            ->ignoreUnreadableDirs(true)
             ->depth(0)
             ->followLinks()
-            ->name('app')
-            ->name('skin')
-            ->name('lib')
-            ->in($searchFolder);
+            ->name('Mage.php')
+            ->name('bootstrap.php')
+            ->name('autoload.php')
+            ->in($searchFolder . '/app');
 
-        if ($finder->count() >= 2) {
+        if ($finder->count() > 0) {
             $files = iterator_to_array($finder, false);
             /* @var $file \SplFileInfo */
 
             if (count($files) == 2) {
-                // Magento 2 has no skin folder.
-                // @TODO find a better magento 2.x check
+                // Magento 2 has bootstrap.php and autoload.php in app folder
                 $this->_magentoMajorVersion = \N98\Magento\Application::MAGENTO_MAJOR_VERSION_2;
             }
 
-            $this->_magentoRootFolder = dirname($files[0]->getRealPath());
+            $this->_magentoRootFolder = $searchFolder;
 
             if (is_callable(array('\Mage', 'getEdition'))) {
                 $this->_magentoEnterprise = (\Mage::getEdition() == 'Enterprise');
