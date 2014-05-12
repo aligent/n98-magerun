@@ -22,6 +22,10 @@ class GenerateVHostCommand extends AbstractMagentoCommand {
      */
     protected $_view = null;
 
+    protected $_defaults = array(
+        'port' => '80',
+    );
+
     protected function configure() {
         $this
                 ->setName('dev:vhost:generate')
@@ -32,6 +36,7 @@ HELP
                 )
                 ->addOption('nginx', null, InputOption::VALUE_NONE, 'Generate nginx VHost')
                 ->addOption('dev-mode', null, InputOption::VALUE_NONE, 'Set MAGE_IS_DEVELOPER_MODE to true')
+                ->addOption('port', null, InputOption::VALUE_REQUIRED, 'The webserver port, defaults to 80')
                 ->addOption('server-admin', null, InputOption::VALUE_OPTIONAL, "The webmaster's email address", 'webmaster@localhost')
                 ->addOption('template', null, InputOption::VALUE_REQUIRED, 'Custom VHost template filename')
                 ->addOption('dump-template', null, InputOption::VALUE_NONE, 'Dump the VHost template that would have otherwise been used. Useful to use as a base for a custom template')
@@ -96,8 +101,13 @@ HELP
     }
 
     protected function _addOptionsToView(array $options) {
+        array_merge($this->_defaults, $options);
         $view = $this->_getView();
         foreach ($options as $key => $value) {
+
+            if (is_null($value) && isset($this->_defaults[$key])) {
+                $options[$key] = $value = $this->_defaults[$key];
+            }
 
 // convert hypenated options to camelCase
             $keyParts = explode('-', $key);

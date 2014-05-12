@@ -1,6 +1,6 @@
 <?php foreach ($websites as $website) : ?>
 server {
-    listen       127.0.0.1:81;
+    listen       127.0.0.1:<?php echo $port; ?>;
 #    listen       80;
     
     listen <?php echo $website->ipAddress; ?>:443 default ssl;

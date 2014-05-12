@@ -1,4 +1,4 @@
-<VirtualHost *:80>
+<VirtualHost *:<?php echo $port; ?>>
 <?php if ($devMode) : ?>
         SetEnv MAGE_IS_DEVELOPER_MODE 'true'
 <?php endif; ?>
