@@ -121,6 +121,7 @@ commands:
     - N98\Magento\Command\Installer\UninstallCommand
     - N98\Magento\Command\LocalConfig\GenerateCommand
     - N98\Magento\Command\MagentoConnect\DownloadExtensionCommand
+    - N98\Magento\Command\MagentoConnect\CreatePackageCommand
     - N98\Magento\Command\MagentoConnect\InstallExtensionCommand
     - N98\Magento\Command\MagentoConnect\ListExtensionsCommand
     - N98\Magento\Command\MagentoConnect\UpgradeExtensionCommand
