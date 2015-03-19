@@ -31,7 +31,7 @@ class DumpCommand extends AbstractDatabaseCommand
             ->addOption('only-command', null, InputOption::VALUE_NONE, 'Print only mysqldump command. Do not execute')
             ->addOption('print-only-filename', null, InputOption::VALUE_NONE, 'Execute and prints no output except the dump filename')
             ->addOption('no-single-transaction', null, InputOption::VALUE_NONE, 'Do not use single-transaction (not recommended, this is blocking)')
-            ->addOption('human-readable', null, InputOption::VALUE_NONE, 'Use a single insert with column names per row. Useful to track database differences, but significantly slows down a later import')
+            ->addOption('human-readable', null, InputOption::VALUE_NONE, 'Use a single insert with column names per row. Useful to track database differences. Use db:import --optimize for speeding up the import.')
             ->addOption('add-routines', null, InputOption::VALUE_NONE, 'Include stored routines in dump (procedures & functions)')
             ->addOption('stdout', null, InputOption::VALUE_NONE, 'Dump to stdout')
             ->addOption('strip', 's', InputOption::VALUE_OPTIONAL, 'Tables to strip (dump only structure of those tables)')
@@ -62,7 +62,8 @@ Available Table Groups:
 
 * @log Log tables
 * @dataflowtemp Temporary tables of the dataflow import/export tool
-* @stripped Standard definition for a stripped dump (logs and dataflow)
+* @importexporttemp Temporary tables of the Import/Export module
+* @stripped Standard definition for a stripped dump (logs, dataflow and importexport)
 * @sales Sales data (orders, invoices, creditmemos etc)
 * @customers Customer data
 * @trade Current trade data (customers and orders). You usally do not want those in developer systems.
@@ -74,7 +75,7 @@ See it in action: http://youtu.be/ttjZHY6vThs
 
 - If you like to prepend a timestamp to the dump name the --add-time option can be used.
 
-- The command comes with a compression function. Add i.e. `--compress=gz` to dump directly in
+- The command comes with a compression function. Add i.e. `--compression=gz` to dump directly in
  gzip compressed file.
 
 HELP;

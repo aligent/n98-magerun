@@ -65,7 +65,7 @@ HELP;
                     throw new \Exception('Invalid model/method definition, expecting "model/class::method".');
                 }
                 if (!($model = \Mage::getModel($run[1])) || !method_exists($model, $run[2])) {
-                    throw new \Exception('Invalid callback: %s::%s does not exist', $run[1], $run[2]);
+                    throw new \Exception(sprintf('Invalid callback: %s::%s does not exist', $run[1], $run[2]));
                 }
                 $callback = array($model, $run[2]);
 
@@ -85,7 +85,7 @@ HELP;
                         ->setStatus(\Mage_Cron_Model_Schedule::STATUS_SUCCESS)
                         ->setFinishedAt(strftime('%Y-%m-%d %H:%M:%S', time()))
                         ->save();
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     $schedule
                         ->setStatus(\Mage_Cron_Model_Schedule::STATUS_ERROR)
                         ->setMessages($e->getMessage())
@@ -96,7 +96,7 @@ HELP;
                 $output->writeln('<info>done</info>');
             }
             if (empty($callback)) {
-                Mage::throwException(Mage::helper('cron')->__('No callbacks found'));
+                \Mage::throwException(Mage::helper('cron')->__('No callbacks found'));
             }
         }
     }
@@ -111,9 +111,8 @@ HELP;
      */
     protected function askJobCode(InputInterface $input, OutputInterface $output, $jobs)
     {
-        $i = 1;
-        foreach ($jobs as $job) {
-            $question[] = '<comment>[' . ($i++) . ']</comment> ' . $job['Job'] . PHP_EOL;
+        foreach ($jobs as $key => $job) {
+            $question[] = '<comment>[' . ($key+1) . ']</comment> ' . $job['Job'] . PHP_EOL;
         }
         $question[] = '<question>Please select job: </question>' . PHP_EOL;
 
@@ -121,17 +120,13 @@ HELP;
             $output,
             $question,
             function ($typeInput) use ($jobs) {
-                $subArray = array_slice($jobs, $typeInput - 1, 1);
-                $firstElement = current($subArray);
-                if (!$firstElement) {
-                    throw new InvalidArgumentException('Invalid job');
+                if (!isset($jobs[$typeInput - 1])) {
+                    throw new \InvalidArgumentException('Invalid job');
                 }
-
-                return $firstElement['Job'];
+                return $jobs[$typeInput - 1]['Job'];
             }
         );
 
         return $jobCode;
     }
-
 }
